@@ -1,5 +1,5 @@
 # scj3-3 - claujson_pool_2 (recycling pool?)
-experimental parallel json parser, (using simdjson, memory pool, thread)
+experimental parallel json parser, (using simdjson, memory pool(use recycle of block?), thread)
 
 scanning - simd,
 
@@ -9,6 +9,22 @@ save - multi-thread
   
 (C++14~, 64bit)
 
+# Usage...
+```c++
+{
+	claujson::parser p;
+	claujson::Document d;
+	for (int t = 0; t < 10; ++t) {
+		auto x = p.parse(input[t], d, 0); 
+		if (!x.first) {
+			std::cout << "fail\n";
+		}
+		else {
+			std::cout << "success\n";
+		}
+	}
+}
+```
 # Usage... with citylots.json
 
 ```c++
