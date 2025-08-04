@@ -68,6 +68,7 @@ namespace claujson {
 		 bool has_pool() const {
 			 return obj_data.has_pool();
 		 }
+		 Arena* get_pool() { return obj_data.get_pool(); }
 		 bool is_object() const;
 		 bool is_array() const;
 

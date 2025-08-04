@@ -117,6 +117,18 @@
 			}
 			return true;
 		}
+		Arena* StructuredPtr::get_pool() {
+			if (type == 1) {
+				return arr->get_pool();
+			}
+			if (type == 2) {
+				return obj->get_pool();
+			}
+			if (type == 3) {
+				return pj->get_pool();
+			}
+			return nullptr;
+		}
 		_Value& StructuredPtr::get_value_list(uint64_t idx) {
 			if (type == 1) {
 				return arr->get_value_list(idx);
@@ -200,6 +212,10 @@
 			if (type == 2) {
 				return obj->has_pool();
 			}
+			if (type == 3) {
+				return pj->has_pool();
+			}
+
 			return false;
 
 		}

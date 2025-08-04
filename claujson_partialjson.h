@@ -38,7 +38,13 @@ namespace claujson {
 
 		_Value& get_value_list(uint64_t idx);
 
+		Arena* get_pool() {
+			return pool;
+		}
 
+		bool has_pool() const {
+			return pool;
+		}
 	private:
 		_Value& get_key_list(uint64_t idx);
 	public:

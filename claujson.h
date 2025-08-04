@@ -108,6 +108,7 @@ namespace claujson {
 		//_ValueType _type = _ValueType::NONE; 
 		//bool _valid = true;
 
+
 	public:
 
 		_Value clone(Arena* pool) const;
@@ -409,10 +410,10 @@ namespace claujson {
 		_Value x;
 		Arena* pool; // getter? public?
 	public:
-		Document() noexcept { pool = new (std::nothrow) Arena(); }
+		Document(uint64_t size = Arena::initialSize) noexcept { pool = new (std::nothrow) Arena(size); }
 
-		Document(_Value&& x) noexcept : x(std::move(x))  {
-			pool = new (std::nothrow) Arena();
+		Document(_Value&& x, uint64_t size = Arena::initialSize) noexcept : x(std::move(x))  {
+			pool = new (std::nothrow) Arena(size);
 		}
 
 		~Document() noexcept;
@@ -516,6 +517,8 @@ namespace claujson {
 		uint64_t size() const;
 		
 		bool empty() const;
+
+		Arena* get_pool();
 
 		_Value& get_value_list(uint64_t idx);
 		_Value& get_key_list(uint64_t idx);

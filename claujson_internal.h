@@ -621,7 +621,7 @@ namespace claujson {
 	private:
 		void RemoveBlocks() {
 			{
-				Reset();
+				Clear();
 				std::vector<BlockManager<Block>> result = DivideBlock();
 				for (auto& x : result) {
 					x.RemoveBlocks();
@@ -640,6 +640,42 @@ namespace claujson {
 			//d::cout << "count2 " << count << " \n";
 		}
 	public:
+
+		void Clear() {
+			if (lastBlockVec.empty()) {
+				if (blockManager.last_block) {
+					blockManager.last_block->next = head[0];
+				}
+				else {
+					blockManager.start_block = head[0];
+				}
+				if (!blockManager.start_block) {
+					blockManager.start_block = head[0];
+				}
+
+				blockManager.last_block = rear[0];
+				if (blockManager.last_block) {
+					blockManager.last_block->next = nullptr;
+				}
+
+				head[0] = blockManager.Get(defaultBlockSize);
+				rear[0] = head[0];
+
+				now_pool = this;
+				// chk! memory leak.-fix
+				while (next) {
+					Arena* temp = next->next;
+					next->next = nullptr;
+					delete next;
+					next = temp;
+				}
+				next = nullptr;
+			}
+			else {
+				Reset();
+			}
+		}
+
 		// link_from -> Reset -> DivideBlock -> link_from...
 		void Reset() {
 			if (lastBlockVec.empty()) {
@@ -694,7 +730,7 @@ namespace claujson {
 			return blocks;
 		}
 	public:
-		Arena() : defaultBlockSize(initialSize), blockManager(nullptr, nullptr) {
+		Arena(uint64_t size = initialSize) : defaultBlockSize(size), blockManager(nullptr, nullptr) {
 			for (int i = 0; i < 1; ++i) { // i < 4
 				head[i] = blockManager.Get(defaultBlockSize);
 				rear[i] = head[i];
@@ -702,8 +738,8 @@ namespace claujson {
 			now_pool = this;
 			next = nullptr;
 		}
-		Arena(Block* start_block, Block* last_block)
-			: defaultBlockSize(initialSize), blockManager(start_block, last_block) {
+		Arena(Block* start_block, Block* last_block, uint64_t size = initialSize)
+			: defaultBlockSize(size), blockManager(start_block, last_block) {
 			for (int i = 0; i < 1; ++i) { // i < 4
 				head[i] = blockManager.Get(defaultBlockSize); // (new (std::nothrow) Block(initialSize));
 				rear[i] = head[i];
@@ -991,6 +1027,10 @@ namespace claujson {
 			std::swap(pool, other.pool);
 		}
 	public:
+		Arena* get_pool() { return pool; }
+
+	public:
+
 		// rename...! // [start_idx ~ size())
 		[[nodiscard]]
 		Vector2<T> Divide(uint64_t start_idx) {
