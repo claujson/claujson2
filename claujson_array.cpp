@@ -235,9 +235,6 @@ namespace claujson {
 		if (real) {
 			clean(arr_vec[idx]);
 		}
-		if (arr_vec[idx].is_structured()) {
-			arr_vec[idx].as_structured_ptr().null_parent();
-		}
 		arr_vec.erase(arr_vec.begin() + idx);
 	}
 

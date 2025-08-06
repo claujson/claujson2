@@ -326,12 +326,6 @@ namespace claujson {
 			clean(obj_data[idx].first);
 			clean(obj_data[idx].second);
 		}
-
-
-		if (obj_data[idx].second.is_structured()) {
-			obj_data[idx].second.as_structured_ptr().null_parent();
-		}
-
 		obj_data.erase(obj_data.begin() + idx);
 	}
 
