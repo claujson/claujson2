@@ -4404,15 +4404,11 @@ namespace claujson {
 					for (auto& x : last_state) {
 						x = -1;
 					}
-					for (uint64_t i = 1; i < thr_num; ++i) {
-						uint64_t middle = length / thr_num * i;
+					for (uint64_t t = 1; t < thr_num; ++t) {
+						uint64_t middle = length / thr_num * t;
 						for (uint64_t i = middle; i < length; ++i) {
 							if (buf[simdjson_imple_->structural_indexes[i]] == ',') {
-								middle = i; _set.insert(i); break;
-							}
-
-							if (i == length - 1) {
-								middle = length;
+								_set.insert(i); break;
 							}
 						}
 					}
@@ -5214,12 +5210,13 @@ namespace claujson {
 		return result;
 	}
 
-
+	//
 	_Value diff(Arena* pool, const _Value& x, const _Value& y) {
 		my_vector<_Value> vec;
 		return _diff(pool, x, y, vec);
 	}
 
+	//
 	_Value& patch(Arena* pool, _Value& x, const _Value& diff) {
 		static _Value unvalid_data(nullptr, false);
 
@@ -5306,7 +5303,7 @@ namespace claujson {
 
 					uint64_t last_idx = obj->get_value_list(last_idx_idx).uint_val();
 
-					claujson::clean(parent.as_array()->get_value_list(last_idx));
+				//	claujson::clean(parent.as_array()->get_value_list(last_idx));
 					parent.as_array()->erase(last_idx);
 				}
 				else {
@@ -5318,7 +5315,7 @@ namespace claujson {
 
 					const _Value& last_key = obj->get_value_list(last_key_idx);
 					uint64_t _idx = parent.as_object()->find(last_key);
-					claujson::clean(parent.as_object()->get_value_list(_idx));
+					//claujson::clean(parent.as_object()->get_value_list(_idx));
 					parent.as_object()->erase(_idx);
 				}
 			}
@@ -5340,8 +5337,8 @@ namespace claujson {
 
 				_Value& _ = result.json_pointerB(vec);
 
-				if (_.is_array()) {
-					StructuredPtr parent = (_.as_array()->get_parent());
+				{
+					StructuredPtr parent = _;
 
 					// case : result.json_pointer returns root?
 					if (!parent) {
