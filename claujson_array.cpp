@@ -225,12 +225,19 @@ namespace claujson {
 		erase(idx, real);
 	}
 
+	void Array::null_parent() {
+		int x = this->parent.left_type();
+		this->parent = Pointer(nullptr, x, 0);
+	}
+
 	void Array::erase(uint64_t idx, bool real) {
 
 		if (real) {
 			clean(arr_vec[idx]);
 		}
-
+		if (arr_vec[idx].is_structured()) {
+			arr_vec[idx].as_structured_ptr().null_parent();
+		}
 		arr_vec.erase(arr_vec.begin() + idx);
 	}
 

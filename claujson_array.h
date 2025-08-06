@@ -50,7 +50,7 @@ namespace claujson {
 		const _Value& operator[](uint64_t idx) const;
 
 		const StructuredPtr get_parent() const;
-
+		void null_parent();
 	public:
 
 		void reserve_data_list(uint64_t len); // if object, reserve key_list and value_list, if array, reserve value_list.

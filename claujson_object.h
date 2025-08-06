@@ -36,7 +36,7 @@ namespace claujson {
 		const _Value& operator[](uint64_t idx) const;
 
 		const StructuredPtr get_parent() const;
-
+		void null_parent();
 	public:
 		bool change_key(const _Value& key, Value new_key);
 		bool change_key(uint64_t idx, Value new_key);

@@ -578,6 +578,7 @@ namespace claujson {
 
 		// pj`s parent is nullptr.
 		StructuredPtr get_parent();
+		void null_parent();
 
 		void erase(uint64_t idx, bool real = false);
 		void erase(const _Value& key, bool real = false);

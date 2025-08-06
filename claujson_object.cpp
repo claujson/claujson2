@@ -105,6 +105,11 @@ namespace claujson {
 		//
 	}
 
+	void Object::null_parent() {
+		int x = this->parent.left_type();
+		this->parent = Pointer(nullptr, x, 0);
+	}
+
 	bool Object::is_object() const {
 		return true;
 	}
@@ -320,6 +325,11 @@ namespace claujson {
 		if (real) {
 			clean(obj_data[idx].first);
 			clean(obj_data[idx].second);
+		}
+
+
+		if (obj_data[idx].second.is_structured()) {
+			obj_data[idx].second.as_structured_ptr().null_parent();
 		}
 
 		obj_data.erase(obj_data.begin() + idx);

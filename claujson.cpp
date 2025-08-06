@@ -503,6 +503,15 @@
 			}
 
 			return p;
+		}	
+		
+		void StructuredPtr::null_parent() {
+			if (type == 1) {
+				arr->null_parent();
+			}
+			if (type == 2) {
+				obj->null_parent();
+			}
 		}
 
 		std::ostream& operator<<(std::ostream& stream, const claujson::_Value& data) {
