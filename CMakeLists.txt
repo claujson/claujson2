@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.11.0)
 
 # 프로젝트 정보
 project(
-  claujson_pool_2
+  claujson2
   VERSION 0.1.0 #
   DESCRIPTION "claujson with memory_pool_2"
   LANGUAGES CXX)
@@ -15,8 +15,8 @@ set(CMAKE_POLICY_DEFAULT_CMP0048 NEW)
 #set(CMAKE_CXX_STANDARD 17) # C++17
 set(CMAKE_BUILD_TYPE "Release")
 
-set(LIB_NAME claujson_pool_2) # static lib
-set(LIB_NAME14 claujson_pool14_2) # static lib with c++ 14
+set(LIB_NAME claujson2) # static lib
+set(LIB_NAME14 claujson2_14) # static lib with c++ 14
 
 set(ROOT .)
 
