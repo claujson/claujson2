@@ -1,4 +1,4 @@
-# scj3-3 - claujson_pool_2 (recycling pool?)
+# scj3-3 - claujson2 (recycling pool?)
 experimental parallel json parser, (using simdjson, memory pool(use recycle of block?), thread)
 
 scanning - simd,
