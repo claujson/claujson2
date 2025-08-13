@@ -25,7 +25,7 @@ namespace claujson {
 		Pointer() {}
 		// left_op : 1bit
 		// right_op : 2bit
-		Pointer(void* ptr, uint8_t left_op, uint8_t right_op) {
+		explicit Pointer(void* ptr, uint32_t left_op, uint32_t right_op) {
 			uint64_t value = (uint64_t)ptr;
 			if (left_op) {
 				value = value | 0x8000000000000000;

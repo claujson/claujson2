@@ -7,7 +7,7 @@
 //#include <cstdlib>
 //#include <crtdbg.h>
 
-//#include "mimalloc-new-delete.h"
+#include "mimalloc-new-delete.h"
 
 #include <iostream>
 #include <string>
@@ -693,7 +693,7 @@ int main(int argc, char* argv[])
 
 		std::cout << "counter " << claujson::Arena::counter << "\n";
 		//return 0;
-		//continue;
+		continue;
 		//return 0;
 		//
 		//continue;

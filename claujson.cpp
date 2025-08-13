@@ -991,6 +991,12 @@ namespace claujson {
 	private:
 		//std::string m_buffer;
 		fmt::memory_buffer m_buffer;
+		char temp[4096];
+	public:
+		StrStream() {
+			//
+		}
+
 	public:
 
 		const char* buf() const {
@@ -1000,32 +1006,37 @@ namespace claujson {
 			return m_buffer.size();
 		}
 
-		StrStream& add_char(char x) {
+		StrStream& add_char(char x) {			
 			m_buffer.push_back(x);
 			return *this;
 		}
 
 		StrStream& add_float(double x) {
 			fmt::format_to(std::back_inserter(m_buffer), "{:f}", x);
-			//m_buffer.Double(x); // fmt::format_to(std::back_inserter(out), "{:f}", x);
 			return *this;
 		}
 
 		StrStream& add_int(int64_t x) {
 			fmt::format_to(std::back_inserter(m_buffer), "{}", x);
-			//m_buffer.Int64(x); // fmt::format_to(std::back_inserter(out), "{}", x);
 			return *this;
 		}
 
 		StrStream& add_uint(uint64_t x) {
 			fmt::format_to(std::back_inserter(m_buffer), "{}", x);
-			//m_buffer.Uint64(x); // fmt::format_to(std::back_inserter(out), "{}", x);
 			return *this;
 		}
 
 		StrStream& add_2(const char* str) {
-			while (str[0] != '\0') {
-				add_char(str[0]);
+			while (*str != '\0') {
+				add_char(*str);
+				++str;
+			}
+			return *this;
+		}
+
+		StrStream& add_3(const char* str, uint64_t len) {
+			while (*str != '\0') {
+				add_char(*str);
 				++str;
 			}
 			return *this;
@@ -1873,12 +1884,13 @@ namespace claujson {
 
 					my_vector<StructuredPtr> next(pivots.size() - 1);
 					{
-						std::vector<BlockManager<Arena::Block>> divided = _global_memory_pool->DivideBlock();
+						std::vector<std::vector<BlockManager<Arena::Block>>> divided = _global_memory_pool->DivideBlock();
 						memory_pool = std::vector<Arena*>(pivots.size() - 1);
 						uint64_t i = 0;
 						for (auto*& x : memory_pool) {
-							if (i < divided.size()) {
-								x = new Arena(divided[i].start_block, divided[i].last_block);
+							if (i < divided[0].size()) {
+								x = new Arena(divided[0][i].start_block, divided[0][i].last_block, 
+									divided[1][i].start_block, divided[1][i].last_block);
 							}
 							else {
 								x = new Arena();
@@ -2874,8 +2886,9 @@ namespace claujson {
 
 	class JsonView {
 	public:
-		const _Value* value;
-		int32_t type; // enum? 0 - ARRAY, 1 - OBJECT, 2 - KEY, 3 - VALUE, 4 - END_ARRAY, 5 - END_OBJECT
+		Pointer value;
+		//const _Value* value;
+		//int32_t type; // enum? 0 - ARRAY, 1 - OBJECT, 2 - KEY, 3 - VALUE, 4 - END_ARRAY, 5 - END_OBJECT, 6 - -1
 	};
 
 	JsonView* _run(JsonView* view_arr, const _Value* x);
@@ -2885,7 +2898,7 @@ namespace claujson {
 		if (view_arr == view_arr2) {
 			return nullptr;
 		}
-		view_arr2->type = -1;
+		view_arr2->value = Pointer(view_arr2->value.use(), 1, 2);
 		return view_arr2;
 	}
 	JsonView* _run(JsonView* view_arr, const _Value* x) {
@@ -2896,7 +2909,7 @@ namespace claujson {
 		if (x->is_array()) {
 			// ARRAY
 			JsonView* start = view_arr;
-			(*view_arr) = JsonView{ x, 0 };
+			(*view_arr).value = Pointer((void*)x, 0, 0);
 			++view_arr;
 			uint64_t sz = x->as_array()->get_data_size();
 			for (uint64_t i = 0; i < sz; ++i) {
@@ -2904,36 +2917,36 @@ namespace claujson {
 					view_arr = _run(view_arr, &x->as_array()->get_value_list(i));
 				}
 				else {
-					(*view_arr) = JsonView{ &x->as_array()->get_value_list(i), 3 };
+					(*view_arr).value = Pointer{ (void*)&x->as_array()->get_value_list(i), 0, 3 };
 					++view_arr;
 				}
 			}
-			(*view_arr) = JsonView{ nullptr, 4 };
+			(*view_arr).value = Pointer{ nullptr, 1, 0 };
 			++view_arr;
 		}
 		else if (x->is_object()) {
 			// OBJECT
 			JsonView* start = view_arr;
-			(*view_arr) = JsonView{ x, 1 };
+			(*view_arr).value = Pointer{ (void*)x, 0, 1 };
 			++view_arr;
 			uint64_t sz = x->as_object()->get_data_size();
 			for (uint64_t i = 0; i < sz; ++i) {
-				(*view_arr) = JsonView{ &x->as_object()->get_const_key_list(i), 2 };
+				(*view_arr).value = Pointer{ (void*)&x->as_object()->get_const_key_list(i), 0, 2 };
 				++view_arr;
 
 				if (x->as_object()->get_value_list(i).is_structured()) {
 					view_arr = _run(view_arr, &x->as_object()->get_value_list(i));
 				}
 				else {
-					(*view_arr) = JsonView{ &x->as_object()->get_value_list(i), 3 };
+					(*view_arr).value = Pointer{ (void*)&x->as_object()->get_value_list(i), 0, 3 };
 					++view_arr;
 				}
 			}
-			(*view_arr) = JsonView{ nullptr, 5 };
+			(*view_arr).value = Pointer{ nullptr, 1, 1 };
 			++view_arr;
 		}
 		else {
-			(*view_arr) = JsonView{ x, 3 };
+			(*view_arr).value = Pointer{ (void*)x, 0, 3 };
 			++view_arr;
 		}
 
@@ -2942,12 +2955,14 @@ namespace claujson {
 
 	void print(JsonView* json_view, JsonView* end, claujson::StrStream& strStream) {
 		
-		while (json_view->type != -1) {
+		int type = json_view->value.left_type() * 4 + json_view->value.right_type();
+		int next_type = (json_view + 1)->value.left_type() * 4 + (json_view + 1)->value.right_type();
+		while (type != 6) {
 			if (json_view == end) {
 				return;
 			}
 
-			switch (json_view->type) {
+			switch (type) {
 			case 0: // ARRAY
 				strStream.add_char('[');
 				//strStream.add_char(' ');
@@ -2957,15 +2972,15 @@ namespace claujson {
 				//strStream.add_char(' ');
 				break;
 			case 2: // KEY
-				write_primitive(strStream, *json_view->value); //strStream.add_1(json_view->value->get_string().data(), json_view->value->get_string().size());
+				write_primitive(strStream, *(_Value*)json_view->value.use()); //strStream.add_1(json_view->value->get_string().data(), json_view->value->get_string().size());
 				//strStream.add_char(' '); 
 				strStream.add_char(':');
 				//strStream.add_char(' '); 
 				break;
 			case 3: // VALUE
-				write_primitive(strStream, *json_view->value);
+				write_primitive(strStream, *(_Value*)json_view->value.use());
 
-				if ((json_view + 1)->type != 4 && (json_view + 1)->type != 5 && (json_view + 1)->type != -1) {
+				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
 					strStream.add_char(',');
 					//strStream.add_char(' ');
@@ -2975,7 +2990,7 @@ namespace claujson {
 				strStream.add_char(']');
 				//strStream.add_char('\n');
 
-				if ((json_view + 1)->type != 4 && (json_view + 1)->type != 5 && (json_view +1)->type != -1) {
+				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
 					strStream.add_char(',');
 					//strStream.add_char(' ');
@@ -2986,7 +3001,7 @@ namespace claujson {
 				strStream.add_char('}');
 				//strStream.add_char('\n');
 
-				if ((json_view + 1)->type != 4 && (json_view + 1)->type != 5 && (json_view + 1)->type != -1) {
+				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
 					strStream.add_char(',');
 					//strStream.add_char(' ');
@@ -2995,17 +3010,22 @@ namespace claujson {
 			}
 
 			++json_view;
+			type = json_view->value.left_type() * 4 + json_view->value.right_type();
+			next_type = (json_view + 1)->value.left_type() * 4 + (json_view + 1)->value.right_type();
 		}
 	}
 
 	void print_pretty(JsonView* json_view, JsonView* end, claujson::StrStream& strStream) {
 
-		while (json_view->type != -1) {
+		int type = json_view->value.left_type() * 4 + json_view->value.right_type();
+		int next_type = (json_view + 1)->value.left_type() * 4 + (json_view + 1)->value.right_type();
+
+		while (type != 6) {
 			if (json_view == end) {
 				return;
 			}
 
-			switch (json_view->type) {
+			switch (type) {
 			case 0: // ARRAY
 				strStream.add_char('[');
 				strStream.add_char(' ');
@@ -3015,15 +3035,15 @@ namespace claujson {
 				strStream.add_char(' ');
 				break;
 			case 2: // KEY
-				write_primitive(strStream, *json_view->value);
+				write_primitive(strStream, *(_Value*)(json_view->value.use()));
 				strStream.add_char(' '); 
 				strStream.add_char(':');
 				strStream.add_char(' '); 
 				break;
 			case 3: // VALUE
-				write_primitive(strStream, *json_view->value);
+				write_primitive(strStream, *(_Value*)(json_view->value.use()));
 
-				if ((json_view + 1)->type != 4 && (json_view + 1)->type != 5 && (json_view + 1)->type != -1) {
+				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
 					strStream.add_char(',');
 					strStream.add_char(' ');
@@ -3033,7 +3053,7 @@ namespace claujson {
 				strStream.add_char(']');
 				strStream.add_char('\n');
 
-				if ((json_view + 1)->type != 4 && (json_view + 1)->type != 5 && (json_view + 1)->type != -1) {
+				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
 					strStream.add_char(',');
 					strStream.add_char(' ');
@@ -3044,7 +3064,7 @@ namespace claujson {
 				strStream.add_char('}');
 				strStream.add_char('\n');
 
-				if ((json_view + 1)->type != 4 && (json_view + 1)->type != 5 && (json_view + 1)->type != -1) {
+				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
 					strStream.add_char(',');
 					strStream.add_char(' ');
@@ -3053,6 +3073,10 @@ namespace claujson {
 			}
 
 			++json_view;
+
+			type = json_view->value.left_type() * 4 + json_view->value.right_type();
+			next_type = (json_view + 1)->value.left_type() * 4 + (json_view + 1)->value.right_type();
+
 		}
 	}
 
