@@ -758,8 +758,8 @@ namespace claujson {
 		}
 		Arena(Block* start_block0, Block* last_block0, Block* start_block1, Block* last_block1, uint64_t size = initialSize)
 			: defaultBlockSize(size) {
-			blockManager[0] = BlockManager(start_block0, last_block0);
-			blockManager[1] = BlockManager(start_block1, last_block1);
+			blockManager[0] = BlockManager<Block>(start_block0, last_block0);
+			blockManager[1] = BlockManager<Block>(start_block1, last_block1);
 
 			for (int i = 0; i < 2; ++i) { // i < 2
 				head[i] = blockManager[i].Get(defaultBlockSize); // (new (std::nothrow) Block(initialSize));
