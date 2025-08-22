@@ -2054,11 +2054,16 @@ namespace claujson {
 								}
 							}
 
+							if (_global.get_data_size() > 1) { // bug fix..
+								log << warn << "not valid file6\n";
+								throw 6;
+							}
+
 							_global_memory_pool->link_from(memory_pool[start]);
 							for (uint64_t i = start + 1; i <= last; ++i) {
 								if (chk[i]) { delete memory_pool[i]; memory_pool[i] = nullptr; continue; }
 								_global_memory_pool->link_from(memory_pool[i]);
-							}
+							}	
 						}
 						//catch (...) {
 							//throw "in Merge, error";
@@ -2066,10 +2071,7 @@ namespace claujson {
 						//}
 						//
 
-						if (_global.get_data_size() > 1) { // bug fix..
-							log << warn << "not valid file6\n";
-							throw 6;
-						}
+					
 
 						auto c = std::chrono::steady_clock::now();
 						auto dur2 = std::chrono::duration_cast<std::chrono::milliseconds>(c - b);
@@ -3504,7 +3506,7 @@ namespace claujson {
 				}
 			}
 
-			if (idx > last) { // depth == 0) {
+			if (idx > last || (start == 0 && depth == 0)) {
 				goto document_end;
 			}
 
@@ -4362,8 +4364,7 @@ namespace claujson {
 			thr_num = 1;
 		}
 
-		_Value& ut = d.Get();  d.pool->Reset(); //
-		ut = _Value();
+		_Value& ut = d.Get(); 
 
 		uint64_t length = 0;
 
@@ -4384,6 +4385,9 @@ namespace claujson {
 
 				return { false, 0 };
 			}
+
+			d.pool->Reset(); //
+			ut = _Value();
 
 			const auto& buf = test_.raw_buf();
 			const auto buf_len = test_.raw_len();
@@ -4675,8 +4679,7 @@ namespace claujson {
 	
 	std::pair<bool, uint64_t> parser::parse_str(StringView str, Document& d, uint64_t thr_num)
 	{
-		_Value& ut = d.Get(); d.pool->Reset(); //
-		ut = _Value();
+		_Value& ut = d.Get(); 
 
 		log << info << str << "\n";
 
@@ -4701,6 +4704,10 @@ namespace claujson {
 
 				return { false, 0 };
 			}
+
+			d.pool->Reset(); //
+			ut = _Value();
+
 			const auto& buf = test_.raw_buf();
 			const auto buf_len = test_.raw_len();
 			auto* simdjson_imple_ = test_.raw_implementation().get();
@@ -4738,9 +4745,6 @@ namespace claujson {
 			
 			std::set<uint64_t> _set;
 			{
-
-				
-
 				//my_vector<uint64_t> start(thr_num + 1);
 				my_vector<uint64_t> last(thr_num);
 

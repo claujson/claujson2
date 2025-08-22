@@ -729,7 +729,7 @@ namespace claujson {
 		void Reset() {
 			Reset(0);
 			Reset(1);
-			now_pool = this;
+			//now_pool = this;
 			// chk! memory leak.-fix
 			while (next) {
 				Arena* temp = next->next;
