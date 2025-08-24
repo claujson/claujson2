@@ -62,7 +62,7 @@ target_compile_definitions(${LIB_NAME} PRIVATE
             $<$<CONFIG:Release>:
                 /std:c++20;
                 /Oi;
-                /Gy
+                /GL
             >
             /permissive-;
             /sdl;
@@ -86,7 +86,7 @@ target_compile_definitions(${LIB_NAME} PRIVATE
             $<$<CONFIG:Release>:
                 /std:c++14;
                 /Oi;
-                /Gy
+                /GL
             >
             /permissive-;
             /sdl;
