@@ -412,9 +412,11 @@ namespace claujson {
 	public:
 		Document(uint64_t size = Arena::initialSize) noexcept { pool = new (std::nothrow) Arena(size); }
 
-		Document(_Value&& x, uint64_t size = Arena::initialSize) noexcept : x(std::move(x))  {
+		Document(_Value&& x, uint64_t size = Arena::initialSize) noexcept : x(std::move(x)) {
 			pool = new (std::nothrow) Arena(size);
 		}
+
+		Document(Document&& d) noexcept : x(std::move(d.x)), pool(d.pool) { d.pool = nullptr; }
 
 		~Document() noexcept;
 	public:
