@@ -6,8 +6,10 @@ scanning - simd,
 parsing - multi-thread(used in clauparser),
 
 save - multi-thread
-  
+
 (C++14~, 64bit)
+# benchmark, Tested on Intel i7 cpu 13700
+![](test2.png)
 
 # Usage...
 ```c++
