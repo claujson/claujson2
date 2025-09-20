@@ -783,7 +783,7 @@ namespace claujson {
 				}
 				Block* block = now_pool->head[no];
 
-				while (block) {
+				if (block) {
 					if (block->offset + size < block->capacity) {
 						uint64_t remain = block->capacity - block->offset;
 
@@ -800,7 +800,7 @@ namespace claujson {
 					}
 					block = block->next;
 					
-					break;
+					//break;
 				}
 			}
 

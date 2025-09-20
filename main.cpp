@@ -644,7 +644,7 @@ int main(int argc, char* argv[])
 	claujson::Document j;
 	claujson::parser p;
 
-	for (int i = 0; i < 20; ++i) {
+	for (int i = 0; i < 6; ++i) {
 		claujson::Arena::counter = 0;
 
 
@@ -694,14 +694,10 @@ int main(int argc, char* argv[])
 		std::cout << "counter " << claujson::Arena::counter << "\n";
 		//return 0;
 		//continue;
-		///return 0;
-		//
-		//continue;
-	 //return 0;
-
 		auto b = std::chrono::steady_clock::now();
 		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
 		std::cout << "total " << dur.count() << "ms\n";
+		
 		//continue;
 		//return 0;
 
@@ -736,9 +732,7 @@ int main(int argc, char* argv[])
 	//	std::cout << "counter " << claujson::Arena::counter << "\n";
 
 		if (1) {
-
-			claujson::Document x;
-			auto result = p.parse("temp.json", x, thr_num);
+			auto result = p.parse("temp.json", j, thr_num);
 
 			if (!result.first) {
 				return 1;

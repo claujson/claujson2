@@ -46,12 +46,12 @@ namespace claujson {
 		}
 		void* use() {
 			uint64_t value = (uint64_t)ptr;
-			value = value & 0x7FFFFFFFFFFFFC;
+			value = value & 0x7FFFFFFFFFFFFFFC;
 			return (void*)value;
 		}
 		const void* use() const {
 			uint64_t value = (uint64_t)ptr;
-			value = value & 0x7FFFFFFFFFFFFC;
+			value = value & 0x7FFFFFFFFFFFFFFC;
 			return (void*)value;
 		}
 	};
@@ -699,9 +699,9 @@ namespace claujson {
 
 	std::pair<bool, std::string> convert_to_string_in_json(StringView x);
 	
-	//bool convert_number(StringView x, claujson::_Value& data);
+	bool convert_number(StringView x, claujson::_Value& data);
 
-	//bool convert_string(StringView x, claujson::_Value& data);
+	bool convert_string(StringView x, claujson::_Value& data);
 
 	bool is_valid_string_in_json(StringView x);
 

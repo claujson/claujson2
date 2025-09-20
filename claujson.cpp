@@ -5628,7 +5628,7 @@ namespace claujson {
 
 	}
 
-	/*
+	
 	bool convert_number(StringView x, claujson::_Value& data) {
 		return ConvertNumber(data, x.data(), x.size(), true);
 	}
@@ -5636,7 +5636,7 @@ namespace claujson {
 	bool convert_string(StringView x, claujson::_Value& data) {
 		return ConvertString(nullptr, data, x.data(), x.size());
 	}
-	*/
+	
 #if __cpp_lib_char8_t
 	bool is_valid_string_in_json(std::u8string_view x) {
 		return is_valid_string_in_json(StringView((const char*)x.data(), x.size()));
