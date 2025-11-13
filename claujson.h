@@ -329,7 +329,10 @@ namespace claujson {
 
 		_Value(const _Value& other) = delete;
 
-		_Value(_Value&& other) noexcept;
+		_Value(_Value&& other) {
+			this->init(std::move(other));
+		}
+		void init(_Value&& other) noexcept;
 
 		_Value();
 
@@ -356,11 +359,11 @@ namespace claujson {
 	public:
 		Value() noexcept { }
 
-		Value(_Value&& x) noexcept : x(std::move(x)) {
-			//
+		Value(_Value&& x) noexcept {
+			this->x.init(std::move(x));
 		}
-		Value(Value&& x) noexcept : x(std::move(x.x)) {
-			//
+		Value(Value&& x) noexcept  {
+			this->x.init(std::move(x.x));
 		}
 
 		~Value() noexcept;
@@ -412,11 +415,16 @@ namespace claujson {
 	public:
 		Document(uint64_t size = Arena::initialSize) noexcept { pool = new (std::nothrow) Arena(size); }
 
-		Document(_Value&& x, uint64_t size = Arena::initialSize) noexcept : x(std::move(x)) {
+		Document(_Value&& x, uint64_t size = Arena::initialSize) noexcept {
+			this->x.init(std::move(x));
 			pool = new (std::nothrow) Arena(size);
 		}
 
-		Document(Document&& d) noexcept : x(std::move(d.x)), pool(d.pool) { d.pool = nullptr; }
+		Document(Document&& d) noexcept  { 
+			this->x.init(std::move(d.x));
+			this->pool = (d.pool);
+			d.pool = nullptr; 
+		}
 
 		~Document() noexcept;
 	public:

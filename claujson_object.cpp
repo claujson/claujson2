@@ -283,7 +283,7 @@ namespace claujson {
 				Object* x = val.Get().as_object();
 				x->set_parent(this);
 			}
-			obj_data.push_back({ std::move(key.Get()), std::move(val.Get()) });
+			obj_data.emplace_back(std::move(key.Get()), std::move(val.Get()));
 			return true;
 		}
 
@@ -301,7 +301,7 @@ namespace claujson {
 				x->set_parent(this);
 			}
 		}
-		obj_data.push_back({ std::move(key.Get()), std::move(val.Get()) });
+		obj_data.emplace_back(std::move(key.Get()), std::move(val.Get()));
 
 		return true;
 	}
@@ -415,7 +415,7 @@ namespace claujson {
 					ERROR("Error in add_item_type, key is not string");
 				}
 
-				obj_data.push_back(Pair<_Value, _Value>{ std::move(temp), std::move(temp2) });
+				obj_data.emplace_back(std::move(temp), std::move(temp2));
 			}
 	}
 
@@ -467,7 +467,7 @@ namespace claujson {
 				}
 
 				json.as_structured().set_parent(this);
-				obj_data.push_back(Pair<_Value, _Value>(std::move(temp), std::move(json)));
+				obj_data.emplace_back(std::move(temp), std::move(json));
 
 			}
 			else if (type == _ValueType::ARRAY) {
@@ -482,7 +482,7 @@ namespace claujson {
 				}
 
 				json.as_structured().set_parent(this);
-				obj_data.push_back(Pair<_Value, _Value>(std::move(temp), std::move(json)));
+				obj_data.emplace_back(std::move(temp), std::move(json));
 
 			}
 		}

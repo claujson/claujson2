@@ -195,7 +195,7 @@ namespace claujson {
 					ERROR("partialJson is array or object.6");
 				}
 
-				obj_data.push_back({ std::move(temp), std::move(temp2) });
+				obj_data.emplace_back(std::move(temp), std::move(temp2));
 			}
 	}
 
@@ -217,7 +217,7 @@ namespace claujson {
 					ERROR("partialJson is array or object.5");
 				}
 
-				arr_vec.push_back(std::move(temp2));
+				arr_vec.emplace_back(std::move(temp2));
 			}
 	}
 
@@ -251,7 +251,7 @@ namespace claujson {
 				}
 
 				json.set_parent(StructuredPtr(this));
-				obj_data.push_back({ std::move(temp), _Value(json) });
+				obj_data.emplace_back(std::move(temp), _Value(json));
 
 			}
 			else if (type == _ValueType::ARRAY) {
@@ -263,7 +263,7 @@ namespace claujson {
 				}
 
 				json.set_parent(StructuredPtr(this));
-				obj_data.push_back({ std::move(temp), _Value(json) });
+				obj_data.emplace_back(std::move(temp), _Value(json));
 
 			}
 		}
@@ -291,7 +291,7 @@ namespace claujson {
 			}
 
 			json.set_parent(this);
-			arr_vec.push_back(_Value(json));
+			arr_vec.emplace_back(json);
 
 		}
 	}
@@ -323,7 +323,7 @@ namespace claujson {
 			val.Get().as_object()->set_parent(this);
 		}
 
-		obj_data.push_back({ std::move(key.Get()), std::move(val.Get()) });
+		obj_data.emplace_back(std::move(key.Get()), std::move(val.Get()));
 
 		return true;
 	}
@@ -355,7 +355,7 @@ namespace claujson {
 			val.Get().as_object()->set_parent(this);
 		}
 
-		arr_vec.push_back(std::move(val.Get()));
+		arr_vec.emplace_back(std::move(val.Get()));
 
 		return true;
 	}

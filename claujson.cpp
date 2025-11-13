@@ -8,6 +8,7 @@
 #include <array>
 
 #include "fmt/format.h"
+#include "fmt/compile.h"
 
 #if __cpp_lib_string_view
 
@@ -808,7 +809,7 @@ namespace claujson {
 	claujson::_Value& Convert(Arena* pool, claujson::_Value& data, uint64_t buf_idx, uint64_t next_buf_idx, bool key,
 		char* buf, uint64_t token_idx, bool& err) {
 		
-		data.clear(true);
+		//data.clear(true);
 
 		int ch = buf[buf_idx];
 		//try {
@@ -991,7 +992,7 @@ namespace claujson {
 	private:
 		//std::string m_buffer;
 		fmt::memory_buffer m_buffer;
-		char temp[4096];
+		//char temp[4096];
 	public:
 		StrStream() {
 			//
@@ -1012,33 +1013,29 @@ namespace claujson {
 		}
 
 		StrStream& add_float(double x) {
-			fmt::format_to(std::back_inserter(m_buffer), "{:f}", x);
+			fmt::format_to(std::back_inserter(m_buffer), FMT_COMPILE("{:f}"), x);
 			return *this;
 		}
 
 		StrStream& add_int(int64_t x) {
-			fmt::format_to(std::back_inserter(m_buffer), "{}", x);
+			fmt::format_int fi(x);
+			m_buffer.append(fi.data(), fi.data() + fi.size());
 			return *this;
 		}
 
 		StrStream& add_uint(uint64_t x) {
-			fmt::format_to(std::back_inserter(m_buffer), "{}", x);
+			fmt::format_int fi(x);
+			m_buffer.append(fi.data(), fi.data() + fi.size());
 			return *this;
 		}
 
 		StrStream& add_2(const char* str) {
-			while (*str != '\0') {
-				add_char(*str);
-				++str;
-			}
+			m_buffer.append(str, str + std::strlen(str));
 			return *this;
 		}
 
 		StrStream& add_3(const char* str, uint64_t len) {
-			while (*str != '\0') {
-				add_char(*str);
-				++str;
-			}
+			m_buffer.append(str, str + len);
 			return *this;
 		}
 	};
@@ -2205,25 +2202,25 @@ namespace claujson {
 	claujson_inline void _write_string(StrStream& stream, char ch) {
 		switch (ch) {
 		case '\\':
-			stream.add_2("\\\\");
+			stream.add_3("\\\\", 2);
 			break;
 		case '\"':
-			stream.add_2("\\\"");
+			stream.add_3("\\\"", 2);
 			break;
 		case '\n':
-			stream.add_2("\\n");
+			stream.add_3("\\n", 2);
 			break;
 		case '\b':
-			stream.add_2("\\b");
+			stream.add_3("\\b", 2);
 			break;
 		case '\f':
-			stream.add_2("\\f");
+			stream.add_3("\\f", 2);
 			break;
 		case '\r':
-			stream.add_2("\\r");
+			stream.add_3("\\r", 2);
 			break;
 		case '\t':
-			stream.add_2("\\t");
+			stream.add_3("\\t", 2);
 			break;
 		default:
 		{
@@ -2232,11 +2229,11 @@ namespace claujson {
 			{
 				char buf[] = "\\uDDDD";
 				snprintf(buf + 2, 5, "%04X", code);
-				stream.add_2(buf);
+				stream.add_3(buf, 6);
 			}
 			else {
 				char buf[] = { ch, '\0' };
-				stream.add_2(buf);
+				stream.add_3(buf, 1);
 			}
 		}
 		}
@@ -2259,25 +2256,30 @@ namespace claujson {
 	static   const  char* str_space[] = { "", " " };
 
 	claujson_inline void write_primitive(StrStream& stream, const _Value& x) {
+		// todo - change to switch case
 		if (x.is_str()) {
-
 			write_string(stream, StringView(x.str_val().data(), x.str_val().size()));
-
 		}
-		else if (x.type() == _ValueType::BOOL) {
-			stream.add_2(x.bool_val() ? "true" : "false");
-		}
-		else if (x.type() == _ValueType::FLOAT) {
-			stream.add_float(x.float_val());
-		}
-		else if (x.type() == _ValueType::INT) {
-			stream.add_int(x.int_val());
-		}
-		else if (x.type() == _ValueType::UINT) {
-			stream.add_uint(x.uint_val());
-		}
-		else if (x.type() == _ValueType::NULL_) {
-			stream.add_2("null");
+		else {
+			switch (x.type()) {
+			case _ValueType::BOOL:
+				stream.add_3(x.bool_val() ? "true" : "false", x.bool_val() ? 4 : 5);
+				break;
+			case _ValueType::FLOAT:
+				stream.add_float(x.float_val());
+				break;
+			case _ValueType::INT:
+				stream.add_int(x.int_val());
+				break;
+			case _ValueType::UINT:
+				stream.add_uint(x.uint_val());
+				break;
+			case _ValueType::NULL_:
+				stream.add_3("null", 4);
+				break;
+			default:
+				break;
+			}
 		}
 	}
 	std::string LoadData2::write_to_str(const _Value& global, bool pretty) {

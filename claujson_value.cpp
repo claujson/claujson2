@@ -427,10 +427,10 @@ namespace claujson {
 		if (!convert) {
 			if (pool) {
 				_str_val = (String*)pool->allocate<String>(sizeof(String));
-				new (_str_val)String(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+				_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
 			}
 			else {
-				_str_val = new String(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+				_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
 			}
 			return true;
 		}
@@ -485,10 +485,10 @@ namespace claujson {
 
 				if (pool) {
 					_str_val = (String*)pool->allocate<String>(sizeof(String));
-					new (_str_val)String(pool, (char*)buf_dest, string_length);
+					_str_val->init(pool, (char*)buf_dest, string_length);
 				}
 				else {
-					_str_val = new String(pool, (char*)buf_dest, string_length);
+					_str_val->init(pool, (char*)buf_dest, string_length);
 				}
 			}
 
@@ -522,10 +522,10 @@ namespace claujson {
 
 				if (pool) {
 					_str_val = (String*)pool->allocate<String>(sizeof(String));
-					new (_str_val)String(pool, (char*)buf_dest, string_length);
+					_str_val->init(pool, (char*)buf_dest, string_length);
 				}
 				else {
-					_str_val = new String(pool, (char*)buf_dest, string_length);
+					_str_val->init(pool, (char*)buf_dest, string_length);
 				}
 			}
 		}
@@ -561,10 +561,10 @@ namespace claujson {
 	void _Value::set_str_in_parse(Arena* pool, const char* str, uint64_t len) {
 		if (pool) {
 			_str_val = (String*)pool->allocate<String>(sizeof(String));
-			new (_str_val) String(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+			_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
 		}
 		else {
-			_str_val = new String(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+			_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
 		}
 		_type = _ValueType::STRING;
 	}
@@ -632,16 +632,19 @@ namespace claujson {
 		//
 	}
 
-	_Value::_Value(_Value&& other) noexcept
-		: _type(_ValueType::NONE)
+	void _Value::init(_Value&& other) noexcept
+		
 	{
+		this->_type = _ValueType::NONE;
+
 		if (!other.is_valid()) {
 			return;
 		}
 
 		{
-			std::swap(_int_val, other._int_val);
-			std::swap(this->_type, other._type);
+			_int_val = other._int_val;
+			this->_type = other._type;
+			other._type = _ValueType::NONE;
 		}
 	}
 

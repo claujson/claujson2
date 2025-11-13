@@ -647,9 +647,6 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < 6; ++i) {
 		claujson::Arena::counter = 0;
 
-
-
-
 		if (argc < 4) {
 			claujson::log.console();
 			claujson::log.info(); // info도 보임
@@ -698,7 +695,7 @@ int main(int argc, char* argv[])
 		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
 		std::cout << "total " << dur.count() << "ms\n";
 		
-		//continue;
+		continue;
 		//return 0;
 
 		auto c = std::chrono::steady_clock::now();

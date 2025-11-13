@@ -1128,6 +1128,21 @@ namespace claujson {
 			//new (&m_arr[m_size]) T();
 			new (&m_arr[m_size++]) T(std::move(x));
 		}
+
+		template<typename... _Args>
+		void emplace_back(_Args&&... __args) {
+			if (size() >= capacity()) {
+				if (capacity() == 0) {
+					expand(2);
+				}
+				else {
+					expand(2 * capacity());
+				}
+			}
+			new (&m_arr[m_size++]) T(std::forward<_Args>(__args)...);
+		}
+
+
 		void pop_back() {
 			if (m_size > 0) {
 				m_size--;

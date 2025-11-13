@@ -101,7 +101,9 @@ namespace claujson {
 		}
 
 	private:
-		explicit String(Arena* pool, const char* str) : pool(pool) {
+		void init(Arena* pool, const char* str) {
+			this->pool = pool;
+			
 			if (!str) { this->type = _ValueType::ERROR; return; }
 
 			this->sz = Static_Cast<uint64_t, uint32_t>(strlen(str));
@@ -129,14 +131,17 @@ namespace claujson {
 			}
 		}
 
-		explicit String(Arena* pool, const char* str, uint32_t sz) : pool(pool) {
+		void init(Arena* pool, const char* str, uint32_t sz) {
+			this->pool = pool;
+
 			if (!str) { this->type = _ValueType::ERROR; return; }
 
 			this->sz = sz;
 			if (this->sz < CLAUJSON_STRING_BUF_SIZE) {
 				this->buf_sz = (uint8_t)this->sz;
+				memset(this->buf, 0, CLAUJSON_STRING_BUF_SIZE);
 				memcpy(this->buf, str, static_cast<uint64_t>(this->buf_sz));
-				this->buf[(uint64_t)this->buf_sz] = '\0';
+				//this->buf[(uint64_t)this->buf_sz] = '\0';
 				this->type = _ValueType::SHORT_STRING;
 			}
 			else {
@@ -263,7 +268,9 @@ namespace claujson {
 		}
 
 		String substr(uint64_t start, uint64_t len) {
-			return String(pool, data() + start, len);
+			String str;
+			str.init(pool, data() + start, len);
+			return str;
 		}
 	private:
 		// suppose str is valid utf-8 string!

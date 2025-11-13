@@ -186,7 +186,7 @@ namespace claujson {
 			val.Get().as_object()->set_parent(this);
 		}
 
-		arr_vec.push_back(std::move(val.Get()));
+		arr_vec.emplace_back(std::move(val.Get()));
 
 		return true;
 	}
@@ -315,7 +315,7 @@ namespace claujson {
 
 					ERROR("Error in add_item_type");
 				}
-				arr_vec.push_back(std::move(temp2));
+				arr_vec.emplace_back(std::move(temp2));
 			}
 	}
 
@@ -343,7 +343,7 @@ namespace claujson {
 			}
 		
 			json.as_structured().set_parent(this);
-			arr_vec.push_back(std::move(json));
+			arr_vec.emplace_back(std::move(json));
 	
 
 		}
@@ -359,7 +359,7 @@ namespace claujson {
 			}
 
 			json.as_structured().set_parent(this);
-			arr_vec.push_back(std::move(json));
+			arr_vec.emplace_back(std::move(json));
 		}
 	}
 	
