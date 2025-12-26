@@ -329,7 +329,7 @@ namespace claujson {
 
 		_Value(const _Value& other) = delete;
 
-		_Value(_Value&& other) {
+		_Value(_Value&& other) noexcept {
 			this->init(std::move(other));
 		}
 		void init(_Value&& other) noexcept;
