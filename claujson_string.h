@@ -131,6 +131,7 @@ namespace claujson {
 			}
 		}
 
+		inline
 		void init(Arena* pool, const char* str, uint32_t sz) {
 			this->pool = pool;
 
@@ -139,9 +140,8 @@ namespace claujson {
 			this->sz = sz;
 			if (this->sz < CLAUJSON_STRING_BUF_SIZE) {
 				this->buf_sz = (uint8_t)this->sz;
-				memset(this->buf, 0, CLAUJSON_STRING_BUF_SIZE);
 				memcpy(this->buf, str, static_cast<uint64_t>(this->buf_sz));
-				//this->buf[(uint64_t)this->buf_sz] = '\0';
+				this->buf[(uint64_t)this->buf_sz] = '\0';
 				this->type = _ValueType::SHORT_STRING;
 			}
 			else {

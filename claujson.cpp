@@ -4526,7 +4526,7 @@ namespace claujson {
 			d.pool->Reset(); //
 			ut = _Value();
 
-			const auto& buf = test_.raw_buf();
+			const auto& buf = test_.raw_buf().get();
 			const auto buf_len = test_.raw_len();
 
 			auto* simdjson_imple_ = test_.raw_implementation().get();
@@ -4850,7 +4850,7 @@ namespace claujson {
 			d.pool->Reset(); //
 			ut = _Value();
 
-			const auto& buf = test_.raw_buf();
+			const auto& buf = test_.raw_buf().get();
 			const auto buf_len = test_.raw_len();
 			auto* simdjson_imple_ = test_.raw_implementation().get();
 
