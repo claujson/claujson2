@@ -534,7 +534,23 @@ void diff_test2() {
 int main(int argc, char* argv[])
 {
 	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-
+	{
+		int a, b;
+		a = clock();
+		uint64_t sum = 0;
+		uint64_t sum2 = 0;
+		for (int i = 0; i < 10240000; ++i) {
+			std::string x = std::to_string(i);
+			claujson::_Value data;
+			claujson::convert_number(x, data);
+			sum += data.get_integer();
+			sum2 += i;
+		}
+		b = clock();
+		std::cout << b - a << "ms\n";
+		std::cout << "sum is " << sum << "\n";
+		std::cout << "sum2 is " << sum2 << "\n";
+	}
 	std::cout << sizeof(std::vector<std::pair<claujson::_Value, claujson::_Value>>) << "\n";
 	//std::cout << sizeof(std::string) << " " << sizeof(claujson::Structured) << " " << sizeof(claujson::Array)
 	//	<< " " << sizeof(claujson::Object) << " " << sizeof(claujson::_Value) << "\n";
