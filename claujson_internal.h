@@ -1116,7 +1116,7 @@ namespace claujson {
 			}
 			m_size = sz;
 		}
-
+/*
 		template<>
 		void insert(char* start, char* last) {
 			uint64_t sz = m_size + (last - start);
@@ -1130,7 +1130,7 @@ namespace claujson {
 			}
 			m_size = sz;
 		}
-
+*/
 		template <class U>
 		void push_back(U&& x) {
 			if (size() >= capacity()) {
@@ -1261,4 +1261,5 @@ namespace claujson {
 	using my_vector = Vector2<T>;
 
 } // end of claujson
+
 
