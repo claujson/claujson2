@@ -1098,7 +1098,9 @@ namespace claujson {
 		bool has_pool()const {
 			return pool;
 		}
-		void insert(T* start, T* last) {
+		
+		template <class U>
+		void insert(U* start, U* last) {
 			uint64_t sz = m_size + (last - start);
 
 			if (sz <= m_size) { return; }
@@ -1115,7 +1117,22 @@ namespace claujson {
 			m_size = sz;
 		}
 
-		void push_back(T x) {
+		template<>
+		void insert(char* start, char* last) {
+			uint64_t sz = m_size + (last - start);
+			if (sz <= m_size) { return; }
+
+			{
+				if (sz > m_capacity) {
+					expand2(2 * sz);
+				}
+				memcpy(m_arr + m_size, start, (last - start) * sizeof(char));
+			}
+			m_size = sz;
+		}
+
+		template <class U>
+		void push_back(U&& x) {
 			if (size() >= capacity()) {
 				if (capacity() == 0) {
 					expand(2);
@@ -1126,7 +1143,7 @@ namespace claujson {
 			}
 
 			//new (&m_arr[m_size]) T();
-			new (&m_arr[m_size++]) T(std::move(x));
+			new (&m_arr[m_size++]) T(std::forward<U>(x));
 		}
 
 		template<typename... _Args>
@@ -1173,6 +1190,12 @@ namespace claujson {
 		void clear() {
 			m_size = 0;
 		}
+		T* data() {
+			return m_arr;
+		}
+		const T* data() const {
+			return m_arr;
+		}
 		uint64_t size() const { return m_size; }
 		uint64_t capacity() const { return m_capacity; }
 
@@ -1211,6 +1234,24 @@ namespace claujson {
 				}
 
 				m_arr = temp;
+			}
+			m_capacity = new_capacity;
+		}
+		// for char array.
+		void expand2(uint64_t new_capacity) {
+			if (pool) {
+				char* temp = (char*)pool->allocate<char>(sizeof(char) * new_capacity);
+				memcpy(temp, m_arr, sizeof(char) * m_size);
+				if (temp != (char*)m_arr) {
+					pool->deallocate<char>((char*)m_arr, m_capacity);
+				}
+				m_arr = (T*)temp;
+			}
+			else {
+				char* temp = new (std::nothrow) char[new_capacity]();
+				memcpy(temp, (char*)m_arr, sizeof(char) * m_size);
+				delete[] (char*)m_arr;
+				m_arr = (T*)temp;
 			}
 			m_capacity = new_capacity;
 		}
