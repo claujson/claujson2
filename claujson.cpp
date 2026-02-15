@@ -1635,19 +1635,19 @@ namespace claujson {
 			bool is_key = false;
 		};
 
-		 static bool __LoadData(char* buf, uint64_t buf_len,
+		static bool __LoadData(char* buf, uint64_t buf_len,
 			_simdjson::internal::dom_parser_implementation* imple,
 			int64_t token_arr_start, uint64_t token_arr_len, StructuredPtr _global,
 			int start_state, int last_state, // this line : now not used..
-			class StructuredPtr* next, uint64_t* count_vec, 
+			class StructuredPtr* next, uint64_t* count_vec,
 
-			 int* err, uint64_t no, Arena* pool)
-		 {
+			int* err, uint64_t no, Arena* pool)
+		{
 			try {
 				if (token_arr_len <= 0) {
 					return false;
 				}
-				
+
 				// token_arr_len >= 1
 
 				uint64_t left_no = token_arr_start;
@@ -1660,24 +1660,26 @@ namespace claujson {
 
 				TokenTemp key;
 
-				for (uint64_t i = 0; i < token_arr_len; ++i) {
-					const char type = (buf[imple->structural_indexes[token_arr_start + i]]);
+				auto* p_start = &imple->structural_indexes[token_arr_start];
+				auto* p_end = &imple->structural_indexes[token_arr_start + token_arr_len];
+				for (auto* p = &imple->structural_indexes[token_arr_start]; p != p_end; ++p) {
+					const char type = (buf[*p]);
 
 					switch (type) {
 					case ',':
 						continue;
 					default:
 					{
-						bool is_key = token_arr_start + i + 1 < imple->n_structural_indexes && buf[imple->structural_indexes[token_arr_start + i + 1]] == ':';
+						bool is_key = p + 1 < p_end && buf[*(p + 1)] == ':';
 
 						{
 							TokenTemp data;
 
-							data.buf_idx = imple->structural_indexes[token_arr_start + i];
-							data.token_idx = token_arr_start + i;
-
-							if (token_arr_start + i + 1 < imple->n_structural_indexes) {
-								data.next_buf_idx = imple->structural_indexes[token_arr_start + i + 1];
+							data.buf_idx = *p;
+							data.token_idx = token_arr_start + (p - p_start);
+							// p - p_start <- idx
+							if ((p - p_start) < imple->n_structural_indexes) {
+								data.next_buf_idx = *(p + 1);
 							}
 							else {
 								data.next_buf_idx = buf_len;
@@ -1689,12 +1691,12 @@ namespace claujson {
 
 								key = std::move(data);
 
-								++i; // pass key
+								++p; // pass key
 							}
 							else {
 
 								if (key.is_key) {
-									nowUT.add_item_type(key.buf_idx, key.next_buf_idx, 
+									nowUT.add_item_type(key.buf_idx, key.next_buf_idx,
 										data.buf_idx, data.next_buf_idx, buf,
 										key.token_idx, data.token_idx, pool);
 									key.is_key = false;
@@ -1722,9 +1724,9 @@ namespace claujson {
 							nowUT.add_user_type(type == '{' ? _ValueType::OBJECT : _ValueType::ARRAY, pool
 							);
 						}
-						
+
 						class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);
-						
+
 						braceNum++;
 
 						/// initial new nestedUT.
@@ -1792,11 +1794,11 @@ namespace claujson {
 							braceNum--;
 
 							nowUT = nowUT.get_parent();
-							
+
 						}
 					}
 					break;
-					
+
 					}
 				}
 
