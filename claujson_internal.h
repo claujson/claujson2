@@ -950,9 +950,9 @@ namespace claujson {
 			if (pool) {
 				m_arr = (T*)pool->allocate<T>(sizeof(T) * m_capacity, alignof(T));
 
-				//for (uint64_t i = 0; i < m_size; ++i) {
-				//	new (&m_arr[i]) T();
-				//}
+				for (uint64_t i = 0; i < m_size; ++i) {
+					new (&m_arr[i]) T();
+				}
 			}
 			else {
 				std::cout << "pool is nullptr\n"; // chk?
@@ -966,9 +966,9 @@ namespace claujson {
 			if (pool) {
 				m_arr = (T*)pool->allocate<T>(sizeof(T) * m_capacity, alignof(T));
 
-				//for (uint64_t i = 0; i < m_size; ++i) {
-				//	new (&m_arr[i]) T();
-				//}
+				for (uint64_t i = 0; i < m_size; ++i) {
+					new (&m_arr[i]) T();
+				}
 			}
 			else {
 				m_arr = new T[m_capacity]();
