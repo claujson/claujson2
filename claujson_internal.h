@@ -928,6 +928,8 @@ namespace claujson {
 
 	template <class T>
 	class Vector2 {
+
+		friend class LoadData2;
 	private:
 		Arena* pool = nullptr;
 		T* m_arr = nullptr;
@@ -1086,6 +1088,24 @@ namespace claujson {
 
 			return result;
 		}
+		[[nodiscard]]
+		Vector2<T> Shift(int64_t offset) {
+			Vector2<T> result;
+
+			result.pool = this->pool->now_pool;
+
+			if (pool && m_size <= -offset) {
+				result.m_arr = this->m_arr + -offset;
+				result.m_capacity = (capacity() + offset);
+				result.m_size = size() + offset;
+			}
+			else if (m_size <= -offset) {
+				return Vector2<T>{ };
+			}
+
+			return result;
+		}
+
 		void erase(T* p) {
 			uint64_t idx = p - m_arr;
 

@@ -746,7 +746,7 @@ namespace claujson {
 		}
 		auto* x = _simdjson::parse_string((const uint8_t*)text + 1, string_buf, false);
 		if (x == nullptr) {
-			return false; // ERROR("Error in Convert for string");
+			return false; // CLAUJSON_ERROR("Error in Convert for string");
 		}
 		else {
 			*x = '\0';
@@ -772,7 +772,7 @@ namespace claujson {
 				copy = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[len + _simdjson::_SIMDJSON_PADDING]);
 				copy_len = len;
 			}
-			if (copy.get() == nullptr) { return false; } // ERROR("Error in Convert for new"); } // cf) new Json?
+			if (copy.get() == nullptr) { return false; } // CLAUJSON_ERROR("Error in Convert for new"); } // cf) new Json?
 			std::memcpy(copy.get(), text, len);
 			std::memset(copy.get() + len, ' ', _simdjson::_SIMDJSON_PADDING);
 			value = copy.get();
@@ -783,7 +783,7 @@ namespace claujson {
 		if (x != _simdjson::SUCCESS) {
 			log << warn << StringView((char*)value, 20) << "\n";
 			log << warn << "parse number error. " << x << "\n";
-			return false; //ERROR("parse number error. ");
+			return false; //CLAUJSON_ERROR("parse number error. ");
 			//throw "Error in Convert to parse number";
 		}
 
@@ -842,7 +842,7 @@ namespace claujson {
 		case 't':
 		{
 			if (!_simdjson::is_valid_true_atom(reinterpret_cast<uint8_t*>(&buf[buf_idx]), next_buf_idx - buf_idx)) {
-				goto ERR; //ERROR("Error in Convert for true");
+				goto ERR; //CLAUJSON_ERROR("Error in Convert for true");
 			}
 
 			data.set_bool(true);
@@ -850,14 +850,14 @@ namespace claujson {
 		break;
 		case 'f':
 			if (!_simdjson::is_valid_false_atom(reinterpret_cast<uint8_t*>(&buf[buf_idx]), next_buf_idx - buf_idx)) {
-				goto ERR; //ERROR("Error in Convert for false");
+				goto ERR; //CLAUJSON_ERROR("Error in Convert for false");
 			}
 
 			data.set_bool(false);
 			break;
 		case 'n':
 			if (!_simdjson::is_valid_null_atom(reinterpret_cast<uint8_t*>(&buf[buf_idx]), next_buf_idx - buf_idx)) {
-				goto ERR; //ERROR("Error in Convert for null");
+				goto ERR; //CLAUJSON_ERROR("Error in Convert for null");
 			}
 
 			data.set_null();
@@ -865,7 +865,7 @@ namespace claujson {
 
 		default:
 			log << warn << "convert error : " << (int)buf[buf_idx] << " " << buf[buf_idx] << "\n";
-			goto ERR; //ERROR("convert Error");
+			goto ERR; //CLAUJSON_ERROR("convert Error");
 			//throw "Error in Convert : not expected";
 		}
 
@@ -877,7 +877,7 @@ namespace claujson {
 		//catch (const char* str) {
 	ERR:
 		//log << warn << str << "\n";
-		//ERROR(str);
+		//CLAUJSON_ERROR(str);
 		err = true;
 		return data;
 	}
@@ -1341,7 +1341,7 @@ namespace claujson {
 					StructuredPtr temp = vrt;
 
 					uint64_t len = out->get_data_size();
-
+					bool flag = false;
 					if (len > 0 && out->get_value_list(0).is_virtual()) {
 						if (temp.is_array()) {
 							temp.add_array_element(std::move(out->get_value_list(0)));
@@ -1350,8 +1350,50 @@ namespace claujson {
 							temp.add_object_element(_Value(), std::move(out->get_value_list(0)));
 						}
 						--len;
+						flag = true;
+					}
+					
+					//
+
+					if (temp.is_array()) {
+						if (flag) {
+							temp.arr->arr_vec.insert(out->arr_vec.begin(), out->arr_vec.end());
+						}
+						else {
+							temp.arr->arr_vec = std::move(out->arr_vec);
+						}
+
+						if (temp.arr->arr_vec.size() > 0) {
+							uint64_t sz = temp.arr->arr_vec.size();
+							for (uint64_t i = 0; i < sz; ++i) {
+								auto p = temp.arr->arr_vec[i].as_structured_ptr();
+								if (p) {
+									p.set_parent(temp);
+								}
+							}
+						}
+					}
+					else { // is_object
+						if (flag) {
+							temp.obj->obj_data.insert(out->obj_data.begin(), out->obj_data.end());
+						}
+						else {
+							temp.obj->obj_data = std::move(out->obj_data);
+						}
+
+						if (temp.obj->obj_data.size() > 0) {
+							uint64_t sz = temp.obj->obj_data.size();
+							for (uint64_t i = 0; i < sz; ++i) {
+								auto p = temp.obj->obj_data[i].second.as_structured_ptr();
+								if (p) {
+									p.set_parent(temp);
+								}
+							}
+						}
 					}
 
+
+					/*
 					for (uint64_t i = 0; i < len; ++i) {
 						if (out->get_value_list(i).is_structured()) {
 
@@ -1377,6 +1419,7 @@ namespace claujson {
 							}
 						}
 					}
+					*/
 
 					out->clear();
 					out->add_array_element(std::move(vrt));
@@ -1516,10 +1559,10 @@ namespace claujson {
 				}
 
 				if (_next.is_array() && _ut.is_object()) {
-					ERROR("Error in Merge, next is array but child? is object");
+					CLAUJSON_ERROR("Error in Merge, next is array but child? is object");
 				}
 				if (_next.is_object() && _ut.is_array()) {
-					ERROR("Error in Merge, next is object but child? is array");
+					CLAUJSON_ERROR("Error in Merge, next is object but child? is array");
 				}
 
 				int start_offset = 0;
@@ -1579,10 +1622,10 @@ namespace claujson {
 				class StructuredPtr _next = next;
 
 				if (_next.is_array() && _ut.is_object()) {
-					ERROR("Error in Merge, next is array but child? is object");
+					CLAUJSON_ERROR("Error in Merge, next is array but child? is object");
 				}
 				if (_next.is_object() && _ut.is_array()) {
-					ERROR("Error in Merge, next is object but child? is array");
+					CLAUJSON_ERROR("Error in Merge, next is object but child? is array");
 				}
 
 				if (ut_next && _ut == (*ut_next)) {
@@ -2117,7 +2160,7 @@ namespace claujson {
 			catch (int err) {
 
 				log << warn << "merge error " << err << "\n";
-				//ERROR("Merge Error"sv);
+				//CLAUJSON_ERROR("Merge Error"sv);
 				for (uint64_t i = 0; i < __global.size(); ++i) {
 					if (__global[i]) {
 						__global[i].Delete();
@@ -2136,7 +2179,7 @@ namespace claujson {
 			catch (const char* err) {
 
 				log << warn << err << "\n";
-				//ERROR("Merge Error"sv);
+				//CLAUJSON_ERROR("Merge Error"sv);
 				for (uint64_t i = 0; i < __global.size(); ++i) {
 					if (__global[i]) {
 						__global[i].Delete();
@@ -2169,7 +2212,7 @@ namespace claujson {
 					}
 				}
 
-				//ERROR("Internal Error"sv);
+				//CLAUJSON_ERROR("Internal Error"sv);
 				return false;
 			}
 
@@ -2848,6 +2891,7 @@ namespace claujson {
 				auto b = std::chrono::steady_clock::now();
 				auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
 				log << info << "size is " << dur.count() << "ms\n";
+				a = std::chrono::steady_clock::now();
 				if (len / n == 0) {
 					quit = true;
 					break;
@@ -2884,7 +2928,7 @@ namespace claujson {
 				if (quit) {
 					break;
 				}
-
+				a = std::chrono::steady_clock::now();
 				{
 					uint64_t i = 0;
 					for (; i < n - 1; ++i) {
@@ -4524,7 +4568,7 @@ namespace claujson {
 				log << warn << "stage1 error : ";
 				log << warn << x.error() << "\n";
 
-				//ERROR(_simdjson::error_message(x.error()));
+				//CLAUJSON_ERROR(_simdjson::error_message(x.CLAUJSON_ERROR()));
 
 				return { false, 0 };
 			}
@@ -4794,11 +4838,11 @@ namespace claujson {
 			log << info << "simdjson-stage1 start\n";
 			auto x = test_.load(fileName);
 
-			if (x.error() != _simdjson::error_code::SUCCESS) {
+			if (x.CLAUJSON_ERROR() != _simdjson::error_code::SUCCESS) {
 				log << warn << "stage1 error : ";
-				log << warn << x.error() << "\n";
+				log << warn << x.CLAUJSON_ERROR() << "\n";
 
-				//ERROR(_simdjson::error_message(x.error()));
+				//CLAUJSON_ERROR(_simdjson::error_message(x.CLAUJSON_ERROR()));
 
 				return { false, 0 };
 			}
