@@ -11,25 +11,37 @@
 #include <cstring>
 #include <cstdint> // uint64_t? int64_t?
 
+#include "_simdjson.h" // using modified simdjson 4.4.2
 
-template <class From, class To>
-inline To Static_Cast(From x) {
-	To temp = static_cast<To>(x);
-	bool valid = static_cast<From>(temp) == x;
-	if (!valid) {
-		throw std::runtime_error("static cast error");
+using StringView = std::string_view;
+
+#if __cpp_lib_string_view
+using namespace std::literals::string_view_literals;
+#endif
+
+namespace claujson {
+
+	template <class From, class To>
+	inline To Static_Cast(From x, bool& e) {
+		e = false;
+		To temp = static_cast<To>(x);
+		bool valid = static_cast<From>(temp) == x;
+		if (!valid) {
+			e = true;
+		}
+		return temp;
 	}
-	return temp;
+
 }
 
 
-
+/*
 #if __cpp_lib_string_view
 #include <string_view>
 using namespace std::literals::string_view_literals;
 namespace claujson {
 	using StringView = std::string_view;
-}
+
 
 #else
 
@@ -93,7 +105,7 @@ namespace claujson {
 	public:
 		static const uint64_t npos;
 
-		friend std::ostream& operator<<(std::ostream& stream, const claujson::StringView& sv) {
+		friend std::ostream& operator<<(std::ostream& stream, const StringView& sv) {
 			stream << sv.data();
 			return stream;
 		}
@@ -132,13 +144,13 @@ namespace claujson {
 	};
 }
 
-claujson::StringView operator""sv(const char* str, uint64_t sz);
-bool operator==(const std::string& str, claujson::StringView sv);
+StringView operator""sv(const char* str, uint64_t sz);
+bool operator==(const std::string& str, StringView sv);
 
 
 
 #endif
-
+*/
 
 
 namespace claujson {

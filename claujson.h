@@ -7,7 +7,7 @@
 
 #include "thread_pool.h"
 
-#include "_simdjson.h" // modified simdjson // using simdjson 4.2.4
+//#include "_simdjson.h" // modified simdjson 
 
 namespace claujson {
 	class _Value;

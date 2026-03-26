@@ -424,13 +424,20 @@ namespace claujson {
 			return false;
 		}
 
+		bool e = false;
+		uint32_t x = Static_Cast<uint64_t, uint32_t>(len, e); 
+		if (e) {
+			log << claujson::warn << "set_str fail";
+			return false;
+		}
+
 		if (!convert) {
 			if (pool) {
 				_str_val = (String*)pool->allocate<String>(sizeof(String));
-				_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+				_str_val->init(pool, str, x);
 			}
 			else {
-				_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+				_str_val->init(pool, str, x);
 			}
 			return true;
 		}
@@ -559,12 +566,20 @@ namespace claujson {
 	}
 
 	void _Value::set_str_in_parse(Arena* pool, const char* str, uint64_t len) {
+		bool e = false;
+		uint32_t x = Static_Cast<uint64_t, uint32_t>(len, e);
+		
+		if (e) {
+			_type = _ValueType::ERROR;
+			return;
+		}
+		
 		if (pool) {
 			_str_val = (String*)pool->allocate<String>(sizeof(String));
-			_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+			_str_val->init(pool, str, x);
 		}
 		else {
-			_str_val->init(pool, str, Static_Cast<uint64_t, uint32_t>(len));
+			_str_val->init(pool, str, x);
 		}
 		_type = _ValueType::STRING;
 	}

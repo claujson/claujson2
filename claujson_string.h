@@ -5,7 +5,7 @@
 namespace claujson {
 
 	// sz`s type is uint32_t, not uint64_t.
-	class alignas(32) String {
+	class String {
 		friend class _Value;
 	private: // do not change of order. do not add variable.
 #define CLAUJSON_STRING_BUF_SIZE 11
@@ -106,10 +106,15 @@ namespace claujson {
 			
 			if (!str) { this->type = _ValueType::ERROR; return; }
 
-			this->sz = Static_Cast<uint64_t, uint32_t>(strlen(str));
+			bool e = false;
+			this->sz = Static_Cast<uint64_t, uint32_t>(strlen(str), e);
+			if (e) {
+				this->type = _ValueType::ERROR; return;
+			}
 			if (this->sz < CLAUJSON_STRING_BUF_SIZE) {
 				this->buf_sz = (uint8_t)this->sz;
-				memcpy(this->buf, str, static_cast<uint64_t>(this->buf_sz));
+				memcpy(this->buf, str, this->buf_sz);
+				
 				this->buf[(uint64_t)this->buf_sz] = '\0';
 				this->type = _ValueType::SHORT_STRING;
 			}
@@ -277,8 +282,12 @@ namespace claujson {
 		explicit String(Arena* pool, const std::string& str) : pool(pool) {
 			if (str.size() <= CLAUJSON_STRING_BUF_SIZE) {
 				memcpy(buf, str.data(), str.size());
-				this->sz = Static_Cast<uint64_t, uint32_t>(str.size()); // chk..
+				bool e = false;
+				this->sz = Static_Cast<uint64_t, uint32_t>(str.size(), e); // chk..
 				this->type = _ValueType::SHORT_STRING;
+				if (e) {
+					this->type = _ValueType::ERROR;
+				}
 			}
 			else {
 				char* temp = nullptr;
@@ -297,8 +306,12 @@ namespace claujson {
 				}
 				memcpy(temp, str.data(), str.size());
 				this->str = temp;
-				this->sz = Static_Cast<uint64_t, uint32_t>(str.size());
+				bool e = false;
+				this->sz = Static_Cast<uint64_t, uint32_t>(str.size(), e);
 				this->type = _ValueType::STRING;
+				if (e) {
+					this->type = _ValueType::ERROR;
+				}
 			}
 		}
 	};
