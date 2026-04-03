@@ -104,24 +104,6 @@ namespace claujson {
 		void MergeWith(Object* j, int start_offset);
 		void MergeWith(PartialJson* j, int start_offset);
 
-		void add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
-			char* buf, uint64_t key_token_idx, uint64_t val_token_idx);
-
-		void add_item_type(int64_t val_buf_idx, int64_t val_next_buf_idx,
-			char* buf, uint64_t val_token_idx, Arena* pool);
-
-		void add_user_type(int64_t key_buf_idx, int64_t key_next_buf_idx, char* buf,
-			_ValueType type, uint64_t key_token_idx, Arena* pool
-
-
-		);
-
-		//
-		void add_user_type(_ValueType type, Arena* pool
-
-		); // int type -> enum?
-
-
 	};
 
 }

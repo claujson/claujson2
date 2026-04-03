@@ -543,7 +543,7 @@ namespace claujson {
 	}
 
 
-
+	/*
 	bool _Value::set_str(String str) {
 		if (!is_valid()) {
 			return false;
@@ -564,6 +564,7 @@ namespace claujson {
 		_type = _ValueType::STRING;
 		return true;
 	}
+	*/
 
 	void _Value::set_str_in_parse(Arena* pool, const char* str, uint64_t len) {
 		bool e = false;

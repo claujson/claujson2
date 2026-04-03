@@ -418,7 +418,7 @@
 		}
 
 		// need rename param....!
-
+		/*
 		void StructuredPtr::add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
 			char* buf, uint64_t key_token_idx, uint64_t val_token_idx, Arena* pool) {
 			if (type == 1) {
@@ -477,7 +477,7 @@
 			//std::cout << "chk 4";
 			return;
 		}
-
+		*/
 		bool StructuredPtr::is_virtual() const {
 			if (type == 1) {
 				return arr->is_virtual();
@@ -813,6 +813,7 @@ namespace claujson {
 		return true;
 	}
 
+	claujson_inline
 	claujson::_Value& Convert(Arena* pool, claujson::_Value& data, uint64_t buf_idx, uint64_t next_buf_idx, bool key,
 		char* buf, uint64_t token_idx, bool& err) {
 		
@@ -1817,14 +1818,28 @@ namespace claujson {
 							else {
 
 								if (key.is_key) {
-									nowUT.add_item_type(key.buf_idx, key.next_buf_idx,
-										data.buf_idx, data.next_buf_idx, buf,
-										key.token_idx, data.token_idx, pool);
+									_Value _key;
+									bool e = false;
+									Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
+									if (e) {
+										CLAUJSON_ERROR("not valid key");
+									}
+									_Value _data;
+									Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
+									if (e) {
+										CLAUJSON_ERROR("not valid value");
+									}
+									nowUT.add_object_element(std::move(_key), std::move(_data));
 									key.is_key = false;
 								}
 								else {
-									nowUT.add_item_type(data.buf_idx, data.next_buf_idx,
-										buf, data.token_idx, pool);
+									bool e = false;
+									_Value _data;
+									Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
+									if (e) {
+										CLAUJSON_ERROR("not valid value");
+									}
+									nowUT.add_array_element(std::move(_data));
 								}
 							}
 						}
@@ -1836,14 +1851,33 @@ namespace claujson {
 					{ // object start, array start
 
 						if (key.is_key) {
-							nowUT.add_user_type(key.buf_idx, key.next_buf_idx, buf,
-								type == '{' ? _ValueType::OBJECT : _ValueType::ARRAY, key.token_idx, pool
-							); // object vs array
+							_Value _key;
+							bool e = false;
+							Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
+							if (e) {
+								CLAUJSON_ERROR("not valid key");
+							}
+
+							_Value arr_or_obj;
+							if (type == '{') {
+								arr_or_obj = Object::Make(pool);
+							}
+							else {
+								arr_or_obj = Array::Make(pool);
+							}
+							nowUT.add_object_element(std::move(_key), std::move(arr_or_obj));
 							key.is_key = false;
 						}
 						else {
-							nowUT.add_user_type(type == '{' ? _ValueType::OBJECT : _ValueType::ARRAY, pool
-							);
+							_Value arr_or_obj;
+							if (type == '{') {
+								arr_or_obj = Object::Make(pool);
+							}
+							else {
+								arr_or_obj = Array::Make(pool);
+							}
+
+							nowUT.add_array_element(std::move(arr_or_obj)); // add_user_type(type == '{' ? _ValueType::OBJECT : _ValueType::ARRAY, pool);
 						}
 
 						class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);

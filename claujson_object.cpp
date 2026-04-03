@@ -391,7 +391,7 @@ namespace claujson {
 			log << info << "test2";
 		}
 	}
-
+	/*
 	void Object::add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
 		char* buf, uint64_t key_token_idx, uint64_t val_token_idx, Arena* pool) {
 
@@ -486,5 +486,6 @@ namespace claujson {
 
 			}
 		}
-	}
+
+	}	*/
 }

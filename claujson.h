@@ -289,7 +289,7 @@ namespace claujson {
 
 		bool set_str(Arena* pool, const char* str, uint64_t len);
 
-		bool set_str(String str);
+		//bool set_str(String str);
 	private:
 		void set_str_in_parse(Arena* pool, const char* str, uint64_t len);
 	public:
@@ -628,7 +628,7 @@ namespace claujson {
 		void reserve_data_list(uint64_t sz);
 
 	private:
-		// need rename param....!
+		/*// need rename param....!
 		void add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
 			char* buf, uint64_t key_token_idx, uint64_t val_token_idx, Arena* pool);
 
@@ -642,6 +642,7 @@ namespace claujson {
 		//
 		void add_user_type(_ValueType type, Arena* pool
 		); // int type -> enum?
+		*/
 	public:
 
 		bool is_virtual() const;
@@ -732,8 +733,3 @@ namespace claujson {
 		throw msg; \
 		/* error.make(__LINE__, StringView(msg)); */ \
 	} while (false) 
-
-namespace claujson {
-	claujson::_Value& Convert(Arena* pool, claujson::_Value& data, uint64_t buf_idx, uint64_t next_buf_idx, bool key,
-			char* buf, uint64_t token_idx, bool& err);
-}

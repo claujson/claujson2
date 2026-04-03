@@ -295,7 +295,7 @@ namespace claujson {
 		}
 	}
 
-
+	/*
 	void Array::add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
 		char* buf, uint64_t key_token_idx, uint64_t val_token_idx) {
 
@@ -305,7 +305,7 @@ namespace claujson {
 	}
 
 	void Array::add_item_type(int64_t val_buf_idx, int64_t val_next_buf_idx,
-		char* buf, uint64_t val_token_idx, Arena* pool) {
+		char* buf, uint64_t val_token_idx, Arena* pool, void* converter) {
 
 			{
 				_Value temp2;
@@ -326,7 +326,7 @@ namespace claujson {
 		log << warn << "error";
 		CLAUJSON_ERROR("Array::add_user_type1");
 	}
-
+	
 	void Array::add_user_type(_ValueType type
 		, Arena* pool
 	) {
@@ -362,5 +362,5 @@ namespace claujson {
 			arr_vec.emplace_back(std::move(json));
 		}
 	}
-	
+	*/
 }

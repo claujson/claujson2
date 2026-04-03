@@ -165,6 +165,7 @@ namespace claujson {
 			obj_data.reserve(len);
 		}
 	}
+	/*
 	void PartialJson::add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
 		char* buf, uint64_t key_token_idx, uint64_t val_token_idx) {
 
@@ -268,6 +269,7 @@ namespace claujson {
 			}
 		}
 	}
+	
 	 void PartialJson::add_user_type(_ValueType type, Arena* pool
 
 	) {
@@ -295,7 +297,7 @@ namespace claujson {
 
 		}
 	}
-
+*/
 	bool PartialJson::add_object_element(Value key, Value val) {
 		if (val.Get().is_virtual()) {
 			if (val.Get().is_array()) {
@@ -409,5 +411,4 @@ namespace claujson {
 			log << info << "test6";
 		}
 	}
-
 }
