@@ -3068,8 +3068,8 @@ namespace claujson {
 							}
 
 							for (uint64_t j = 0; j < result.size(); ++j) {
-								if (result[i]) {
-									result[i].Delete();
+								if (result[j]) {
+									result[j].Delete();
 								}
 							}
 							quit = true;
@@ -3111,8 +3111,8 @@ namespace claujson {
 						}
 
 						for (uint64_t j = 0; j < result.size(); ++j) {
-							if (result[i]) {
-								result[i].Delete();
+							if (result[j]) {
+								result[j].Delete();
 							}
 						}
 

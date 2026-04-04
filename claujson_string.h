@@ -275,7 +275,13 @@ namespace claujson {
 
 		String substr(uint64_t start, uint64_t len) {
 			String str;
-			str.init(pool, data() + start, len);
+			bool e = false;
+			uint32_t str_len = Static_Cast<uint64_t, uint32_t>(len, e);
+			if (e) {
+				log << warn << "len is so large, in substr";
+				return str;
+			}
+			str.init(pool, data() + start, str_len);
 			return str;
 		}
 	private:
@@ -284,7 +290,7 @@ namespace claujson {
 			if (str.size() <= CLAUJSON_STRING_BUF_SIZE) {
 				memcpy(buf, str.data(), str.size());
 				bool e = false;
-				this->sz = Static_Cast<uint64_t, uint32_t>(str.size(), e); // chk..
+				this->buf_sz = Static_Cast<uint64_t, uint32_t>(str.size(), e); // chk..
 				this->type = _ValueType::SHORT_STRING;
 				if (e) {
 					this->type = _ValueType::ERROR;
