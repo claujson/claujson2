@@ -5265,6 +5265,43 @@ namespace claujson {
 		return str;
 	}
 
+
+	struct DiffKeys {
+		Arena   arena;
+		_Value  op_str;
+		_Value  path_str;
+		_Value  value_str;
+		_Value  key_str;
+		_Value  last_key_str;
+		_Value  last_idx_str;
+		_Value  replace_str;
+		_Value  remove_str;
+		_Value  add_str;
+
+		DiffKeys()
+			: arena()
+			, op_str(&arena, "op"sv)
+			, path_str(&arena, "path"sv)
+			, value_str(&arena, "value"sv)
+			, key_str(&arena, "key"sv)
+			, last_key_str(&arena, "last_key"sv)
+			, last_idx_str(&arena, "last_idx"sv)
+			, replace_str(&arena, "replace"sv)
+			, remove_str(&arena, "remove"sv)
+			, add_str(&arena, "add"sv)
+		{}
+
+		// 복사/이동 금지 (_Value가 이동 전용)
+		DiffKeys(const DiffKeys&) = delete;
+		DiffKeys& operator=(const DiffKeys&) = delete;
+	};
+
+	inline DiffKeys& get_diff_keys() {
+		static DiffKeys instance; // C++11: 스레드 안전 초기화 보장
+		return instance;
+	}
+
+
 	static _Value _diff(Arena* pool, const _Value& x, const _Value& y, 
 		my_vector<_Value>& route) {
 		_Value result;
@@ -5281,17 +5318,6 @@ namespace claujson {
 		if (x == y) {
 			return result;
 		}
-
-		static Document d;
-		static const _Value _op_str = _Value(d.GetAllocator(), "op"sv);
-		static const _Value _path_str = _Value(d.GetAllocator(), "path"sv);
-		static const _Value _value_str = _Value(d.GetAllocator(), "value"sv);
-		static const _Value _key_str = _Value(d.GetAllocator(), "key"sv);
-		static const _Value _last_key_str = _Value(d.GetAllocator(), "last_key"sv);
-		static const _Value _last_idx_str = _Value(d.GetAllocator(), "last_idx"sv);
-		static const _Value _replace_str = _Value(d.GetAllocator(), "replace"sv);
-		static const _Value _remove_str = _Value(d.GetAllocator(), "remove"sv);
-		static const _Value _add_str = _Value(d.GetAllocator(), "add"sv);
 	
 		if (x.type() != y.type()) {
 			_Value obj = Object::Make(pool);
@@ -5301,8 +5327,8 @@ namespace claujson {
 				return _Value(nullptr, false);
 			}
 
-			obj.as_object()->add_element(_op_str.clone(pool), 
-				_replace_str.clone(pool));
+			obj.as_object()->add_element(get_diff_keys().op_str.clone(pool), 
+				get_diff_keys().replace_str.clone(pool));
 			{
 				_Value temp = Array::Make(pool);
 				if (temp.as_array() == nullptr) {
@@ -5312,11 +5338,11 @@ namespace claujson {
 				for (uint64_t i = 0; i < route.size(); ++i) {
 					temp.as_array()->add_element(route[i].clone(pool));
 				}
-				obj.as_object()->add_element(_path_str.clone(pool), 
+				obj.as_object()->add_element(get_diff_keys().path_str.clone(pool), 
 					std::move(temp));
 			}
 			
-			obj.as_object()->add_element(_value_str.clone(pool), 
+			obj.as_object()->add_element(get_diff_keys().value_str.clone(pool), 
 				_Value(y.clone(pool)));
 
 			j->add_element(std::move(obj));
@@ -5372,8 +5398,8 @@ namespace claujson {
 							return _Value(nullptr, false);
 						}
 
-						obj.as_object()->add_element(_op_str.clone(pool),
-							_remove_str.clone(pool));
+						obj.as_object()->add_element(get_diff_keys().op_str.clone(pool),
+							get_diff_keys().remove_str.clone(pool));
 
 						{
 							_Value temp = Array::Make(pool);
@@ -5385,12 +5411,12 @@ namespace claujson {
 							for (uint64_t i = 0; i < route.size(); ++i) {
 								temp.as_array()->add_element(route[i].clone(pool));
 							}
-							obj.as_object()->add_element(_path_str.clone(pool), std::move(temp));
+							obj.as_object()->add_element(get_diff_keys().path_str.clone(pool), std::move(temp));
 						}
 
-						//obj->add_element(_path_str.clone(pool), _Value(route));
+						//obj->add_element(get_diff_keys().path_str.clone(pool), _Value(route));
 
-						obj.as_object()->add_element(_last_idx_str.clone(pool), _Value(_i - 1));
+						obj.as_object()->add_element(get_diff_keys().last_idx_str.clone(pool), _Value(_i - 1));
 
 						j->add_element(std::move(obj));
 					}
@@ -5404,7 +5430,7 @@ namespace claujson {
 							return _Value(nullptr, false);
 						}
 
-						obj.as_object()->add_element(_op_str.clone(pool), _add_str.clone(pool));
+						obj.as_object()->add_element(get_diff_keys().op_str.clone(pool), get_diff_keys().add_str.clone(pool));
 
 						{
 							_Value temp = Array::Make(pool);
@@ -5417,11 +5443,11 @@ namespace claujson {
 							for (uint64_t i = 0; i < route.size(); ++i) {
 								temp.as_array()->add_element(route[i].clone(pool));
 							}
-							obj.as_object()->add_element(_path_str.clone(pool), std::move(temp));
+							obj.as_object()->add_element(get_diff_keys().path_str.clone(pool), std::move(temp));
 						}
-						//obj->add_element(_path_str.clone(pool), _Value(route));
+						//obj->add_element(get_diff_keys().path_str.clone(pool), _Value(route));
 
-						obj.as_object()->add_element(_value_str.clone(pool), _Value(jy.as_array()->get_value_list(i).clone(pool)));
+						obj.as_object()->add_element(get_diff_keys().value_str.clone(pool), _Value(jy.as_array()->get_value_list(i).clone(pool)));
 
 						j->add_element(std::move(obj));
 					}
@@ -5466,7 +5492,7 @@ namespace claujson {
 							//clean(result);
 							return _Value(nullptr, false);
 						}
-						obj.as_object()->add_element(_op_str.clone(pool), _remove_str.clone(pool));
+						obj.as_object()->add_element(get_diff_keys().op_str.clone(pool), get_diff_keys().remove_str.clone(pool));
 
 						{
 							_Value temp = Array::Make(pool);
@@ -5479,12 +5505,12 @@ namespace claujson {
 							for (uint64_t i = 0; i < route.size(); ++i) {
 								temp.as_array()->add_element(route[i].clone(pool));
 							}
-							obj.as_object()->add_element(_path_str.clone(pool), std::move(temp));
+							obj.as_object()->add_element(get_diff_keys().path_str.clone(pool), std::move(temp));
 						}
 						
-						//obj->add_element(_path_str.clone(pool), _Value(route));
+						//obj->add_element(get_diff_keys().path_str.clone(pool), _Value(route));
 						
-						obj.as_object()->add_element(_last_key_str.clone(pool), key.clone(pool));
+						obj.as_object()->add_element(get_diff_keys().last_key_str.clone(pool), key.clone(pool));
 
 						j->add_element(std::move(obj));
 					}
@@ -5501,7 +5527,7 @@ namespace claujson {
 							return _Value(nullptr, false);
 						}
 
-						obj.as_object()->add_element(_op_str.clone(pool), _add_str.clone(pool));
+						obj.as_object()->add_element(get_diff_keys().op_str.clone(pool), get_diff_keys().add_str.clone(pool));
 
 						{
 							_Value temp = Array::Make(pool);
@@ -5514,13 +5540,13 @@ namespace claujson {
 							for (uint64_t i = 0; i < route.size(); ++i) {
 								temp.as_array()->add_element(route[i].clone(pool));
 							}
-							obj.as_object()->add_element(_path_str.clone(pool), std::move(temp));
+							obj.as_object()->add_element(get_diff_keys().path_str.clone(pool), std::move(temp));
 						}
 						
-						//obj->add_element(_path_str.clone(pool), _Value(route));
+						//obj->add_element(get_diff_keys().path_str.clone(pool), _Value(route));
 						
-						obj.as_object()->add_element(_key_str.clone(pool), _Value(jy.as_object()->get_key_list(i).clone(pool)));
-						obj.as_object()->add_element(_value_str.clone(pool), _Value(jy.as_object()->get_value_list(i).clone(pool)));
+						obj.as_object()->add_element(get_diff_keys().key_str.clone(pool), _Value(jy.as_object()->get_key_list(i).clone(pool)));
+						obj.as_object()->add_element(get_diff_keys().value_str.clone(pool), _Value(jy.as_object()->get_value_list(i).clone(pool)));
 
 						j->add_element(std::move(obj));
 					}
@@ -5544,7 +5570,7 @@ namespace claujson {
 				return _Value(nullptr, false);
 			}
 
-			obj.as_object()->add_element(_op_str.clone(pool), _replace_str.clone(pool));
+			obj.as_object()->add_element(get_diff_keys().op_str.clone(pool), get_diff_keys().replace_str.clone(pool));
 
 			{
 				_Value temp = Array::Make(pool);
@@ -5557,12 +5583,12 @@ namespace claujson {
 				for (uint64_t i = 0; i < route.size(); ++i) {
 					temp.as_array()->add_element(route[i].clone(pool));
 				}
-				obj.as_object()->add_element(_path_str.clone(pool), std::move(temp));
+				obj.as_object()->add_element(get_diff_keys().path_str.clone(pool), std::move(temp));
 			}
 
-			//obj->add_element(_path_str.clone(pool), _Value(route));
+			//obj->add_element(get_diff_keys().path_str.clone(pool), _Value(route));
 			
-			obj.as_object()->add_element(_value_str.clone(pool), _Value(y.clone(pool)));
+			obj.as_object()->add_element(get_diff_keys().value_str.clone(pool), _Value(y.clone(pool)));
 
 			j->add_element(std::move(obj));
 			break;
@@ -5588,24 +5614,16 @@ namespace claujson {
 			return unvalid_data;
 		}
 
-		static Document d;
-		static const _Value _op_str = _Value(d.GetAllocator(), "op"sv);
-		static const _Value _path_str = _Value(d.GetAllocator(), "path"sv);
-		static const _Value _value_str = _Value(d.GetAllocator(), "value"sv);
-		static const _Value _key_str = _Value(d.GetAllocator(), "key"sv);
-		static const _Value _last_key_str = _Value(d.GetAllocator(), "last_key"sv);
-		static const _Value _last_idx_str = _Value(d.GetAllocator(), "last_idx"sv);
-
 		_Value& result = x;
 
 		uint64_t sz_diff = j_diff->get_data_size();
 
 		for (uint64_t i = 0; i < sz_diff; ++i) {
 			const Object* obj = (const Object*)j_diff->get_value_list(i).as_object();
-			uint64_t op_idx = obj->find(_op_str);
-			uint64_t path_idx = obj->find(_path_str);
-			uint64_t value_idx = obj->find(_value_str);
-			uint64_t key_idx = obj->find(_key_str);
+			uint64_t op_idx = obj->find(get_diff_keys().op_str);
+			uint64_t path_idx = obj->find(get_diff_keys().path_str);
+			uint64_t value_idx = obj->find(get_diff_keys().value_str);
+			uint64_t key_idx = obj->find(get_diff_keys().key_str);
 
 			if (op_idx == Object::npos) {
 			//	clean(result);
@@ -5657,7 +5675,7 @@ namespace claujson {
 					result.clear(false);
 				}
 				else if (parent.is_array()) {
-					uint64_t last_idx_idx = obj->find(_last_idx_str);
+					uint64_t last_idx_idx = obj->find(get_diff_keys().last_idx_str);
 					if (last_idx_idx == Object::npos) {
 						//clean(result);
 						return unvalid_data;
@@ -5669,7 +5687,7 @@ namespace claujson {
 					parent.as_array()->erase(last_idx);
 				}
 				else {
-					uint64_t last_key_idx = obj->find(_last_key_str);
+					uint64_t last_key_idx = obj->find(get_diff_keys().last_key_str);
 					if (last_key_idx == Object::npos) {
 						//clean(result);
 						return unvalid_data;
