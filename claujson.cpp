@@ -3367,7 +3367,7 @@ namespace claujson {
 
 				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
-					//strStream.add_char(',');
+				    strStream.add_comma(pretty); // add_char(',');
 					//strStream.add_char(' ');
 				}
 
