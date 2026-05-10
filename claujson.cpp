@@ -3367,7 +3367,7 @@ namespace claujson {
 
 				if (next_type != 4 && next_type != 5 && next_type != 6) {
 
-				    strStream.add_comma(pretty); // add_char(',');
+					strStream.add_comma(pretty);
 					//strStream.add_char(' ');
 				}
 
@@ -5783,7 +5783,7 @@ namespace claujson {
 		return std::make_unique<ThreadPool>(thr_num);
 	}
 
-
+	/*
 	bool is_valid_string_in_json(StringView x) {
 		const char* str = x.data();
 		uint64_t len = x.size();
@@ -5975,5 +5975,6 @@ namespace claujson {
 	}
 #endif
 
+*/
 }
 

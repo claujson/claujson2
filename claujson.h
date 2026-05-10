@@ -557,6 +557,9 @@ namespace claujson {
 		bool operator==(const StructuredPtr& other) const {
 			return arr == other.arr && type == other.type;
 		}
+		bool operator!=(const StructuredPtr& other) const {
+			return !(arr == other.arr && type == other.type);
+		}
 
 		bool is_array() const {
 			return type == 1;
@@ -602,6 +605,9 @@ namespace claujson {
 		}
 		bool operator==(StructuredPtr p) {
 			return arr == p.arr && type == p.type;
+		}
+		bool operator!=(StructuredPtr p) {
+			return !(*this == p);
 		}
 		bool operator!=(std::nullptr_t) {
 			return arr;
@@ -700,6 +706,7 @@ namespace claujson {
 
 		void write_parallel(Arena* pool, const std::string& fileName, _Value& j, uint64_t thr_num, bool pretty = false);
 		void write_parallel2(const std::string& fileName, const _Value& j, uint64_t thr_num, bool pretty = false);
+		//void write_parallel3(Arena* pool, const std::string& fileName, _Value& j, uint64_t thr_num, bool pretty = false);
 	};
 
 
@@ -710,18 +717,18 @@ namespace claujson {
 
 	void clean(_Value& x); //
 
-	std::pair<bool, std::string> convert_to_string_in_json(StringView x);
+	//std::pair<bool, std::string> convert_to_string_in_json(StringView x);
 	
-	bool convert_number(StringView x, claujson::_Value& data);
+	//bool convert_number(StringView x, claujson::_Value& data);
 
-	bool convert_string(StringView x, claujson::_Value& data);
+	//bool convert_string(StringView x, claujson::_Value& data);
 
-	bool is_valid_string_in_json(StringView x);
+	//bool is_valid_string_in_json(StringView x);
 
 #if __cpp_lib_char8_t
-	std::pair<bool, std::string> convert_to_string_in_json(std::u8string_view x);
+	//::pair<bool, std::string> convert_to_string_in_json(std::u8string_view x);
 
-	bool is_valid_string_in_json(std::u8string_view x);
+	//bool is_valid_string_in_json(std::u8string_view x);
 #endif
 }
 
