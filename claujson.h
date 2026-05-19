@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-// 64bit.. DO NOT build 32bit! //
+// 64bit only.. DO NOT build 32bit! //
 
 #include "claujson_internal.h"
 #include "claujson_string.h"

@@ -31,7 +31,7 @@
 #if __cpp_lib_string_view
 
 #else
-		//const uint64_t StringView::npos = -1;
+		const uint64_t StringView::npos = -1;
 #endif
 
 		Log::Info info;
@@ -728,14 +728,18 @@ namespace claujson {
 	claujson_inline 
 	bool ConvertString(Arena* pool, claujson::_Value& data, const char* text, uint64_t len) {
 		uint8_t sbuf[1024 + 1 + _simdjson::_SIMDJSON_PADDING];
-		std::unique_ptr<uint8_t[]> ubuf;
+		thread_local std::unique_ptr<uint8_t[]> ubuf; // todo - chk! thread_local?
+		thread_local uint64_t ubuf_len = 0;
 		uint8_t* string_buf = nullptr;
 
 		if (len <= 1024) {
 			string_buf = sbuf;
 		}
 		else {
-			ubuf = std::make_unique<uint8_t[]>(len + _simdjson::_SIMDJSON_PADDING);
+			if (ubuf_len < len) {
+				ubuf_len = len;
+				ubuf = std::make_unique<uint8_t[]>(len + _simdjson::_SIMDJSON_PADDING);
+			}
 			string_buf = &ubuf[0];
 		}
 		auto* x = _simdjson::parse_string((const uint8_t*)text + 1, string_buf, false);
