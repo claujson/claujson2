@@ -73,9 +73,9 @@ namespace claujson {
 				}
 				if (obj.str == nullptr) {
 					log << warn << "new error";
-					obj.type = _ValueType::ERROR;
+					obj.type = _ValueType::_VALUE_TYPE_ERROR;
 					String result;
-					result.type = _ValueType::ERROR;
+					result.type = _ValueType::_VALUE_TYPE_ERROR;
 					return result;
 				}
 				memcpy(obj.str, this->str, this->sz);
@@ -104,12 +104,12 @@ namespace claujson {
 		void init(Arena* pool, const char* str) {
 			this->pool = pool;
 			
-			if (!str) { this->type = _ValueType::ERROR; return; }
+			if (!str) { this->type = _ValueType::_VALUE_TYPE_ERROR; return; }
 
 			bool e = false;
 			this->sz = Static_Cast<uint64_t, uint32_t>(strlen(str), e);
 			if (e) {
-				this->type = _ValueType::ERROR; return;
+				this->type = _ValueType::_VALUE_TYPE_ERROR; return;
 			}
 			if (this->sz < CLAUJSON_STRING_BUF_SIZE) {
 				this->buf_sz = (uint8_t)this->sz;
@@ -127,7 +127,7 @@ namespace claujson {
 				
 				if (this->str == nullptr) {
 					log << warn << "new error";
-					this->type = _ValueType::ERROR; return;
+					this->type = _ValueType::_VALUE_TYPE_ERROR; return;
 				}
 				memset(this->str, 0, this->sz + 1);
 				memcpy(this->str, str, this->sz);
@@ -140,7 +140,7 @@ namespace claujson {
 		void init(Arena* pool, const char* str, uint32_t sz) {
 			this->pool = pool;
 
-			if (!str) { this->type = _ValueType::ERROR; return; }
+			if (!str) { this->type = _ValueType::_VALUE_TYPE_ERROR; return; }
 
 			this->sz = sz;
 			if (this->sz < CLAUJSON_STRING_BUF_SIZE) {
@@ -164,7 +164,7 @@ namespace claujson {
 				}
 				
 				if (this->str == nullptr) {
-					this->type = _ValueType::ERROR;
+					this->type = _ValueType::_VALUE_TYPE_ERROR;
 					log << warn << "new error";
 					return;
 				}
@@ -177,7 +177,7 @@ namespace claujson {
 
 	public:
 		bool is_valid() const {
-			return type != _ValueType::NOT_VALID && type != _ValueType::ERROR;
+			return type != _ValueType::NOT_VALID && type != _ValueType::_VALUE_TYPE_ERROR;
 		}
 
 		bool is_str() const {
@@ -293,7 +293,7 @@ namespace claujson {
 				this->buf_sz = Static_Cast<uint64_t, uint32_t>(str.size(), e); // chk..
 				this->type = _ValueType::SHORT_STRING;
 				if (e) {
-					this->type = _ValueType::ERROR;
+					this->type = _ValueType::_VALUE_TYPE_ERROR;
 				}
 			}
 			else {
@@ -317,7 +317,7 @@ namespace claujson {
 				this->sz = Static_Cast<uint64_t, uint32_t>(str.size(), e);
 				this->type = _ValueType::STRING;
 				if (e) {
-					this->type = _ValueType::ERROR;
+					this->type = _ValueType::_VALUE_TYPE_ERROR;
 				}
 			}
 		}

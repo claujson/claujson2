@@ -2046,7 +2046,7 @@ namespace claujson {
 						uint64_t i = 0;
 						for (auto*& x : memory_pool) {
 							if (i < divided[0].size()) {
-								x = new Arena(divided[0][i].start_block, divided[0][i].last_block, 
+								x = new Arena(divided[0][i].start_block, divided[0][i].last_block,
 									divided[1][i].start_block, divided[1][i].last_block);
 							}
 							else {

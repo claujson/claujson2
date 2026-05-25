@@ -62,7 +62,7 @@ namespace claujson {
 			this->_pj_ptr = x.pj;
 		}
 		else {
-			this->_type = _ValueType::ERROR;
+			this->_type = _ValueType::_VALUE_TYPE_ERROR;
 		}
 	}
 
@@ -156,7 +156,7 @@ namespace claujson {
 	}
 
 	bool _Value::is_valid() const {
-		return type() != _ValueType::NOT_VALID && type() != _ValueType::ERROR;
+		return type() != _ValueType::NOT_VALID && type() != _ValueType::_VALUE_TYPE_ERROR;
 	}
 
 	bool _Value::is_null() const {
@@ -571,7 +571,7 @@ namespace claujson {
 		uint32_t x = Static_Cast<uint64_t, uint32_t>(len, e);
 		
 		if (e) {
-			_type = _ValueType::ERROR;
+			_type = _ValueType::_VALUE_TYPE_ERROR;
 			return;
 		}
 		
