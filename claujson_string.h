@@ -129,9 +129,9 @@ namespace claujson {
 					log << warn << "new error";
 					this->type = _ValueType::_VALUE_TYPE_ERROR; return;
 				}
-				memset(this->str, 0, this->sz + 1);
+				//memset(this->str, 0, this->sz + 1);
 				memcpy(this->str, str, this->sz);
-				//this->str[this->sz] = '\0';
+				this->str[this->sz] = '\0';
 				this->type = _ValueType::STRING;
 			}
 		}
@@ -145,9 +145,9 @@ namespace claujson {
 			this->sz = sz;
 			if (this->sz < CLAUJSON_STRING_BUF_SIZE) {
 				this->buf_sz = (uint8_t)this->sz;
-				memset(this->buf, 0, static_cast<uint64_t>(this->buf_sz + 1));
+				//memset(this->buf, 0, static_cast<uint64_t>(this->buf_sz + 1));
 				memcpy(this->buf, str, static_cast<uint64_t>(this->buf_sz));
-				//this->buf[(uint64_t)this->buf_sz] = '\0';
+				this->buf[(uint64_t)this->buf_sz] = '\0';
 				this->type = _ValueType::SHORT_STRING;
 			}
 			else {

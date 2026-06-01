@@ -69,7 +69,7 @@ namespace claujson {
 		// using FlOAT_t = double;
 		// using STR_t = std::string;
 		// using BOOL_t = bool;
-		
+
 	public:
 		friend std::ostream& operator<<(std::ostream& stream, const _Value& data);
 
@@ -128,7 +128,7 @@ namespace claujson {
 		explicit _Value(uint64_t x);
 		explicit _Value(double x);
 
-		explicit _Value(Arena* pool, StringView x); 
+		explicit _Value(Arena* pool, StringView x);
 
 #if __cpp_lib_char8_t
 		// C++20~
@@ -194,7 +194,7 @@ namespace claujson {
 		int64_t& get_integer() {
 			return int_val();
 		}
-		
+
 		int64_t int_val() const;
 
 		uint64_t get_unsigned_integer() const {
@@ -210,7 +210,7 @@ namespace claujson {
 		double get_floating() const {
 			return float_val();
 		}
-		
+
 		double& get_floating() {
 			return float_val();
 		}
@@ -267,7 +267,7 @@ namespace claujson {
 		_Value& operator[](uint64_t idx);
 		const _Value& operator[](uint64_t idx) const;
 	public:
-		void clear(bool remove_str); 
+		void clear(bool remove_str);
 
 		String& get_string() {
 			return str_val();
@@ -294,7 +294,7 @@ namespace claujson {
 		void set_str_in_parse(Arena* pool, const char* str, uint64_t len);
 	public:
 		void set_bool(bool x);
-		
+
 		void set_null();
 
 		void set_none();
@@ -361,12 +361,12 @@ namespace claujson {
 	private:
 		_Value x;
 	public:
-		Value() noexcept { }
+		Value() noexcept {}
 
 		Value(_Value&& x) noexcept {
 			this->x.init(std::move(x));
 		}
-		Value(Value&& x) noexcept  {
+		Value(Value&& x) noexcept {
 			this->x.init(std::move(x.x));
 		}
 
@@ -424,10 +424,10 @@ namespace claujson {
 			pool = new (std::nothrow) Arena(size);
 		}
 
-		Document(Document&& d) noexcept  { 
+		Document(Document&& d) noexcept {
 			this->x.init(std::move(d.x));
 			this->pool = (d.pool);
-			d.pool = nullptr; 
+			d.pool = nullptr;
 		}
 
 		~Document() noexcept;
@@ -456,7 +456,7 @@ namespace claujson {
 		friend class Object;
 		static const uint64_t npos;
 		static _Value empty_value;
-		
+
 	private:
 		union {
 			Array* arr = nullptr;
@@ -495,33 +495,33 @@ namespace claujson {
 			}
 		}
 
-		 StructuredPtr(std::nullptr_t) : arr(nullptr), type(0) {
-			 //
-		 }
-		 StructuredPtr(Array* arr) : arr(arr), type(1)
+		StructuredPtr(std::nullptr_t) : arr(nullptr), type(0) {
+			//
+		}
+		StructuredPtr(Array* arr) : arr(arr), type(1)
 		{
 
 		}
-		 StructuredPtr(Object* obj) : obj(obj), type(2)
+		StructuredPtr(Object* obj) : obj(obj), type(2)
 		{
 
 		}
 
-		 StructuredPtr(PartialJson* pj) : pj(pj), type(3)
+		StructuredPtr(PartialJson* pj) : pj(pj), type(3)
 		{
 			//
 		}
-		 StructuredPtr(const Array* arr) : arr(const_cast<Array*>(arr)), type(1)
-		{
-			//
-		}
-
-		 StructuredPtr(const Object* obj) : obj(const_cast<Object*>(obj)), type(2)
+		StructuredPtr(const Array* arr) : arr(const_cast<Array*>(arr)), type(1)
 		{
 			//
 		}
 
-		 StructuredPtr(const PartialJson* pj) : pj(const_cast<PartialJson*>(pj)), type(3)
+		StructuredPtr(const Object* obj) : obj(const_cast<Object*>(obj)), type(2)
+		{
+			//
+		}
+
+		StructuredPtr(const PartialJson* pj) : pj(const_cast<PartialJson*>(pj)), type(3)
 		{
 			//
 		}
@@ -529,7 +529,7 @@ namespace claujson {
 
 		uint64_t get_data_size() const;
 		uint64_t size() const;
-		
+
 		bool empty() const;
 
 		Arena* get_pool();
@@ -547,7 +547,7 @@ namespace claujson {
 
 		bool change_key(const _Value& key, Value&& next_key);
 		bool change_key(uint64_t idx, Value&& next_key);
-		
+
 		bool has_pool() const;
 
 		explicit operator bool() const {
@@ -625,7 +625,7 @@ namespace claujson {
 		void Delete();
 		void clear();
 		void clear(uint64_t idx); // clear child[idx] ?
-		
+
 		bool assign_value(uint64_t idx, Value val);
 
 
@@ -683,7 +683,7 @@ namespace claujson {
 		std::pair<bool, uint64_t> parse(const std::string& fileName, Document& d, uint64_t thr_num);
 
 		//std::pair<bool, uint64_t> parse2(const std::string& fileName, Document2*& j, uint64_t thr_num);
-		
+
 		// parse json str.
 		std::pair<bool, uint64_t> parse_str(StringView str, Document& d, uint64_t thr_num);
 
@@ -718,7 +718,7 @@ namespace claujson {
 	void clean(_Value& x); //
 
 	//std::pair<bool, std::string> convert_to_string_in_json(StringView x);
-	
+
 	//bool convert_number(StringView x, claujson::_Value& data);
 
 	//bool convert_string(StringView x, claujson::_Value& data);
