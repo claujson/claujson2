@@ -3548,7 +3548,7 @@ namespace claujson {
 	bool is_valid2(_simdjson::dom::parser_for_claujson& dom_parser, uint64_t start, uint64_t last,
 		int* _start_state, int* _last_state,
 		Vector<int8_t>* _is_array, Vector<int8_t>* _is_virtual_array,
-		uint64_t* count = nullptr
+		uint64_t* count = nullptr, int64_t* _max_depth = nullptr, int64_t* _count_ = nullptr
 		) {
 
 		const auto& buf = dom_parser.raw_buf();
@@ -3560,6 +3560,9 @@ namespace claujson {
 		Vector<int8_t> is_array;
 		Vector<int8_t> is_virtual_array;
 		Vector<uint64_t> _stack;
+	
+		int64_t max_depth = 0;
+		int64_t count_ = 0;
 
 		int state = 0;
 		uint64_t no = start;
@@ -3615,13 +3618,17 @@ namespace claujson {
 			//	}
 
 			switch (value) { // start == 0
-			case '{': { if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
-				++idx; log << warn << ("empty object"); count[no++] = 0;
+			case '{': 
+				max_depth = std::max(max_depth, ++count_);
+			{ if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+				++idx; --count_; log << warn << ("empty object"); count[no++] = 0;
 				break;
 			} *_start_state = 0;  goto object_begin;
 			}
-			case '[': { if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
-				++idx; log << warn << ("empty array"); count[no++] = 0; 
+			case '[':
+				max_depth = std::max(max_depth, ++count_); 
+			{ if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+				++idx; --count_; log << warn << ("empty array"); count[no++] = 0;
 				break;
 			} *_start_state = 4;  goto array_begin;
 			}
@@ -3714,13 +3721,17 @@ namespace claujson {
 		{
 			auto value = buf[simdjson_imple->structural_indexes[idx++]];
 			switch (value) {
-			case '{': if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
-				++idx;count[no++] = 0;
+			case '{':
+				max_depth = std::max(max_depth, ++count_);
+				if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+				++idx; --count_; count[no++] = 0;
 				break;
 			}
 					goto object_begin;
-			case '[': if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
-				++idx;count[no++] = 0; 
+			case '[':
+				max_depth = std::max(max_depth, ++count_); 
+				if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+				++idx; --count_; count[no++] = 0;
 				break;
 			} 
 					goto array_begin;
@@ -3797,6 +3808,7 @@ namespace claujson {
 
 	scope_end:
 		{
+			--count_; // chk
 			state = 3;
 			if (depth > 0) {
 				depth--; is_array.pop_back(); _stack.pop_back(); // if (_stack.empty()) { virtual_count = 0; }
@@ -3894,9 +3906,13 @@ namespace claujson {
 		{
 			auto value = buf[simdjson_imple->structural_indexes[idx++]];
 			switch (value) {
-			case '{': if (buf[simdjson_imple->structural_indexes[idx]] == '}') { ++idx; count[no++] = 0; 
+			case '{':
+				max_depth = std::max(max_depth, ++count_); 
+				if (buf[simdjson_imple->structural_indexes[idx]] == '}') { ++idx;  --count_; count[no++] = 0;
 				break; } goto object_begin;
-			case '[': if (buf[simdjson_imple->structural_indexes[idx]] == ']') { ++idx; count[no++] = 0;
+			case '[':
+				max_depth = std::max(max_depth, ++count_); 
+				if (buf[simdjson_imple->structural_indexes[idx]] == ']') { ++idx; --count_; count[no++] = 0;
 				break; } goto array_begin;
 			case ',': { log << warn << "wrong comma.";
 				//if (err) {
@@ -3980,6 +3996,12 @@ namespace claujson {
 			*_is_virtual_array = std::move(is_virtual_array);
 		}
 
+		if (_max_depth) {
+			*_max_depth = max_depth;
+		}
+		if (_count_) {
+			*_count_ = count_;
+		}
 		return true;
 	}
 
@@ -4661,7 +4683,285 @@ namespace claujson {
 	parser::parser(int thr_num) {
 		pool = pool_init(thr_num);
 	}
+	std::pair<bool, uint64_t> parser::parse_small(StringView str, Document& d) {
+		_Value& ut = d.Get();
 
+		auto _ = std::chrono::steady_clock::now();
+
+		{
+			log << info << "simdjson-stage1 start\n";
+			auto x = test_.parse(str.data(), str.size());
+			if (x.error() != _simdjson::error_code::SUCCESS) {
+				log << warn << "stage1 error : " << x.error() << "\n";
+				return { false, 0 };
+			}
+
+			const auto& buf = test_.raw_buf().get();
+			const auto  buf_len = test_.raw_len();
+			auto* simdjson_imple = test_.raw_implementation().get();
+
+			int64_t max_depth = 0;
+			int64_t count_ = 0;
+
+			d.pool->Reset();
+			ut = _Value();
+
+			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::steady_clock::now() - _);
+			log << info << dur.count() << "ms\n";
+
+			if (simdjson_imple->n_structural_indexes == 0) {
+				return { false, 0 };
+			}
+
+			uint64_t idx = 0;
+			uint64_t depth = 0;
+
+			my_vector<_Value*> _stack;  // [depth-1] : 현재 컨테이너 포인터
+			_stack.reserve(1024);
+
+			_Value _key;
+
+			// ── 첫 번째 값 ────────────────────────────────────────────────────────
+			{
+				auto& value = buf[simdjson_imple->structural_indexes[idx++]];
+
+				switch (value) {
+				case '{':
+					if (buf[simdjson_imple->structural_indexes[
+						simdjson_imple->n_structural_indexes - 1]] != '}') {
+						log << warn << "starting brace unmatched";
+						return { false, 1 };
+					}
+					break;
+				case '[':
+					if (buf[simdjson_imple->structural_indexes[
+						simdjson_imple->n_structural_indexes - 1]] != ']') {
+						log << warn << "starting bracket unmatched";
+						return { false, 2 };
+					}
+					break;
+				}
+
+				switch (value) {
+				case '{':
+					max_depth = std::max(max_depth, ++count_);
+					ut = Object::Make(d.GetAllocator());
+					if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+						++idx;  --count_; break;
+					}
+					_stack.push_back(&ut);
+					goto object_begin;
+
+				case '[':
+					max_depth = std::max(max_depth, ++count_); 
+					ut = Array::Make(d.GetAllocator());
+					if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+						++idx; --count_; break;
+					}
+					_stack.push_back(&ut);
+					goto array_begin;
+
+				case ':': case ',': case '}': case ']':
+					log << warn << "not primitive";
+					return { false, 3 };
+
+				default:
+				{
+					bool e = false;
+					Convert(d.GetAllocator(), ut, &value - buf, buf_len, false, buf, 0, e);
+					if (e) { log << warn << "convert error"; return { false, 3 }; }
+				}
+				break;
+				}
+			}
+			goto document_end;
+
+			// ── Object ────────────────────────────────────────────────────────────
+		object_begin:
+			depth++;
+			{
+				auto& key = buf[simdjson_imple->structural_indexes[idx++]];
+				if (key != '"') {
+					log << warn << "Object does not start with a key";
+					return { false, 4 };
+				}
+				bool e = false;
+				Convert(d.GetAllocator(), _key, &key - buf, buf_len, true, buf, 1, e);
+				if (e) { log << warn << "convert error"; return { false, 5 }; }
+			}
+
+		object_field:
+			if (_simdjson_unlikely(
+				buf[simdjson_imple->structural_indexes[idx++]] != ':')) {
+				log << warn << "Missing colon after key in object";
+				return { false, 6 };
+			}
+			{
+				auto& value = buf[simdjson_imple->structural_indexes[idx++]];
+				switch (value) {
+
+				case '{':
+					max_depth = std::max(max_depth, ++count_);
+					_stack[depth - 1]->as_object()->add_element(
+						std::move(_key), Object::Make(d.GetAllocator()));
+					if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+						++idx; --count_; break;
+					}
+					{
+						auto* parent = _stack[depth - 1]->as_object();
+						auto* child = &parent->get_value_list(parent->size() - 1);
+						if ((uint64_t)_stack.size() < depth + 1) _stack.push_back(child);
+						else                                      _stack[depth] = child;
+						goto object_begin;
+					}
+
+				case '[':
+					max_depth = std::max(max_depth, ++count_);
+					_stack[depth - 1]->as_object()->add_element(
+						std::move(_key), Array::Make(d.GetAllocator()));
+					if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+						++idx; --count_; break;
+					}
+					{
+						auto* parent = _stack[depth - 1]->as_object();
+						auto* child = &parent->get_value_list(parent->size() - 1);
+						if ((uint64_t)_stack.size() < depth + 1) _stack.push_back(child);
+						else                                      _stack[depth] = child;
+						goto array_begin;
+					}
+
+				case ',': { log << warn << "wrong comma."; return { false, 7 }; }
+				case ':': { log << warn << "wrong colon."; return { false, 8 }; }
+				case '}': { log << warn << "wrong }.";     return { false, 9 }; }
+				case ']': { log << warn << "wrong ].";     return { false, 10 }; }
+
+				default:
+				{
+					bool e = false;
+					_Value _value;
+					Convert(d.GetAllocator(), _value, &value - buf, buf_len, false, buf, 1, e);
+					if (e) { log << warn << "convert error"; return { false, 11 }; }
+					_stack[depth - 1]->as_object()->add_element(
+						std::move(_key), std::move(_value));
+				}
+				break;
+				}
+			}
+
+		object_continue:
+			switch (buf[simdjson_imple->structural_indexes[idx++]]) {
+			case ',':
+			{
+				auto& key_char = buf[simdjson_imple->structural_indexes[idx++]];
+				if (_simdjson_unlikely(key_char != '"')) {
+					log << warn << "Key string missing at beginning of field in object";
+					return { false, 12 };
+				}
+				bool e = false;
+				Convert(d.GetAllocator(), _key, &key_char - buf, buf_len, true, buf, 1, e);
+				if (e) { log << warn << "convert error"; return { false, 12 }; }
+			}
+			goto object_field;
+			case '}': goto scope_end;
+			case ':': { log << warn << "wrong colon."; return { false, 13 }; }
+			default:  log << warn << "No comma between object fields"; return { false, 14 };
+			}
+
+		scope_end:
+			--count_; //
+
+			if (depth == 0) {
+				log << warn << "scope_end at depth 0";
+				return { false, 23 };
+			}
+			depth--;
+			if (depth == 0) goto document_end;
+			// ✅ is_array 벡터 없이 포인터로 직접 판별
+			if (_stack[depth - 1]->is_array()) goto array_continue;
+			goto object_continue;
+
+			// ── Array ─────────────────────────────────────────────────────────────
+		array_begin:
+			depth++;
+
+		array_value:
+			{
+				auto& value = buf[simdjson_imple->structural_indexes[idx++]];
+				switch (value) {
+
+				case '{':
+					max_depth = std::max(max_depth, ++count_);
+					_stack[depth - 1]->as_array()->add_element(
+						Object::Make(d.GetAllocator()));
+					if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+						++idx;  --count_; break;
+					}
+					{
+						auto* parent = _stack[depth - 1]->as_array();
+						auto* child = &parent->get_value_list(parent->size() - 1);
+						if ((uint64_t)_stack.size() < depth + 1) _stack.push_back(child);
+						else                                      _stack[depth] = child;
+						goto object_begin;
+					}
+
+				case '[':
+					max_depth = std::max(max_depth, ++count_);
+					_stack[depth - 1]->as_array()->add_element(
+						Array::Make(d.GetAllocator()));
+					if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+						++idx; --count_; break;
+					}
+					{
+						auto* parent = _stack[depth - 1]->as_array();
+						auto* child = &parent->get_value_list(parent->size() - 1);
+						if ((uint64_t)_stack.size() < depth + 1) _stack.push_back(child);
+						else                                      _stack[depth] = child;
+						goto array_begin;
+					}
+
+				case ',': { log << warn << "wrong comma."; return { false, 15 }; }
+				case ':': { log << warn << "wrong colon."; return { false, 16 }; }
+				case '}': { log << warn << "wrong }.";     return { false, 17 }; }
+				case ']': { log << warn << "wrong ].";     return { false, 18 }; }
+
+				default:
+				{
+					_Value _value;
+					bool e = false;
+					Convert(d.GetAllocator(), _value, &value - buf, buf_len, false, buf, 1, e);
+					if (e) { log << warn << "convert error"; return { false, 19 }; }
+					_stack[depth - 1]->as_array()->add_element(std::move(_value));
+				}
+				break;
+				}
+			}
+
+		array_continue:
+			switch (buf[simdjson_imple->structural_indexes[idx++]]) {
+			case ',': goto array_value;
+			case ']': goto scope_end;
+			case ':': { log << warn << "wrong colon."; return { false, 20 }; }
+			default:  log << warn << "Missing comma between array values"; return { false, 21 };
+			}
+
+		document_end:
+			if (idx < simdjson_imple->n_structural_indexes) {
+				log << warn << "More than one JSON value at the root of the document";
+				return { false, 22 };
+			}
+
+			log << info << "max depth " << max_depth << "\n";
+
+			if (max_depth > 1024) {
+				log << warn << "too deep json";
+				return { false, 23 };
+			}
+			return { true, 0 };
+		}
+
+		return { false, -1 };
+	}
 	std::pair<bool, uint64_t> parser::parse(const std::string& fileName, Document& d, uint64_t thr_num)
 	{
 		if (thr_num <= 0) {
@@ -4693,19 +4993,24 @@ namespace claujson {
 				return { false, 0 };
 			}
 
-			d.pool->Reset(); //
-			ut = _Value();
-
+			auto a = std::chrono::steady_clock::now();
+			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(a - _);
+			log << info << dur.count() << "ms\n";
+			
+			_ = std::chrono::steady_clock::now();
 			const auto& buf = test_.raw_buf().get();
 			const auto buf_len = test_.raw_len();
 
 			auto* simdjson_imple_ = test_.raw_implementation().get();
 
+			d.pool->Reset(); //
+			ut = _Value();
+
 			my_vector<int64_t> start(thr_num + 1);
 			//my_vector<int> key;
 
-			auto a = std::chrono::steady_clock::now();
-			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(a - _);
+			a = std::chrono::steady_clock::now();
+			dur = std::chrono::duration_cast<std::chrono::milliseconds>(a - _);
 			log << info << dur.count() << "ms\n";
 
 
@@ -4789,10 +5094,12 @@ namespace claujson {
 					}
 
 					if (thr_num > 1) {
+						my_vector<int64_t> max_depth(_set.size());
+						my_vector<int64_t> count_(_set.size());
 
 						for (uint64_t i = 0; i < _set.size(); ++i) {
 							thr_result[i] = pool->enqueue(is_valid2, std::ref(test_), start[i], last[i], &start_state[i], &last_state[i],
-								&is_array[i], &is_virtual_array[i], count_vec);
+								&is_array[i], &is_virtual_array[i], count_vec, &max_depth[i], &count_[i]);
 						}
 						my_vector<int> result(_set.size());
 
@@ -4848,15 +5155,32 @@ namespace claujson {
 						if (false == is_array[0].empty()) {
 							free(count_vec); return { false, -4 };
 						}
+						
+						int64_t sum = max_depth[0];
+						for (uint64_t i = 1; i < max_depth.size(); ++i) {
+							sum = std::max(sum, count_[i - 1] + max_depth[i]);
+							count_[i] += count_[i - 1];
+						}
+						log << info << "max depth " << sum << "\n";
+						if (sum > 1024) {
+							free(count_vec);
+							return { false, -10 };
+						}
 					}
 					else {
 						int start_state = 0;
 						int last_state = 0;
+						int64_t max_depth = 0;
 
 						if (!is_valid2(test_, 0, length - 1, &start_state, &last_state,
-							nullptr, nullptr, count_vec)) {
+							nullptr, nullptr, count_vec, &max_depth)) {
 							free(count_vec);
 							return { false, 0 };
+						}
+						log << info << "max depth " << max_depth << "\n";
+						if (max_depth > 1024) {
+							free(count_vec);
+							return { false, -10 };
 						}
 					}
 				}
@@ -5017,20 +5341,26 @@ namespace claujson {
 				return { false, 0 };
 			}
 
-			d.pool->Reset(); //
-			ut = _Value();
+			auto b = std::chrono::steady_clock::now();
+			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - _);
+
+			log << info << dur.count() << "ms\n";
+
+			_ = std::chrono::steady_clock::now();
 
 			const auto& buf = test_.raw_buf().get();
 			const auto buf_len = test_.raw_len();
 			auto* simdjson_imple_ = test_.raw_implementation().get();
 
-			my_vector<int64_t> start(thr_num + 1);
-			//my_vector<int> key;
-
 			auto a = std::chrono::steady_clock::now();
-			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(a - _);
+			dur = std::chrono::duration_cast<std::chrono::milliseconds>(a - _);
 			log << info << dur.count() << "ms\n";
 
+			d.pool->Reset(); //
+			ut = _Value();
+
+			my_vector<int64_t> start(thr_num + 1);
+			//my_vector<int> key;
 
 			{
 				uint64_t how_many = simdjson_imple_->n_structural_indexes;
@@ -5047,10 +5377,6 @@ namespace claujson {
 				return { false, 0 };
 			}
 
-			auto b = std::chrono::steady_clock::now();
-			dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
-
-			log << info << dur.count() << "ms\n";
 			b = std::chrono::steady_clock::now();
 
 			//if (use_all_function)
@@ -5094,6 +5420,8 @@ namespace claujson {
 					last[i] = start[i + 1];
 				}
 
+				my_vector<int64_t> max_depth(_set.size());
+				my_vector<int64_t> count_(_set.size());
 				my_vector<Vector<int8_t>> is_array(_set.size()), is_virtual_array(_set.size());
 				my_vector<std::future<bool>> thr_result(_set.size());
 				count_vec = (uint64_t*)malloc(length * sizeof(uint64_t));
@@ -5103,7 +5431,7 @@ namespace claujson {
 				}
 				for (uint64_t i = 0; i < _set.size(); ++i) {
 					thr_result[i] = pool->enqueue(is_valid2, std::ref(test_), start[i], last[i], &start_state[i], &last_state[i],
-						&is_array[i], &is_virtual_array[i], count_vec);
+						&is_array[i], &is_virtual_array[i], count_vec, &max_depth[i], &count_[i]);
 				}
 				my_vector<int> vec(_set.size());
 
@@ -5167,6 +5495,19 @@ namespace claujson {
 					return { false, -4 };
 
 				}
+
+				int64_t sum = max_depth[0];
+				for (uint64_t i = 1; i < max_depth.size(); ++i) {
+					sum = std::max(sum, count_[i - 1] + max_depth[i]);
+					count_[i] += count_[i - 1];
+				}
+				log << info << "max depth " << sum << "\n";
+
+				if (sum > 1024) {
+					free(count_vec);
+					return { false, -10 };
+				}
+
 			}
 			//else {
 			//	if (!is_valid(test, length)) {
