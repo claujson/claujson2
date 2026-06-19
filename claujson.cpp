@@ -4769,7 +4769,8 @@ namespace claujson {
 				default:
 				{
 					bool e = false;
-					Convert(d.GetAllocator(), ut, &value - buf, buf_len, false, buf, 0, e);
+					auto len = simdjson_imple->structural_indexes[idx];
+					Convert(d.GetAllocator(), ut, &value - buf, len, false, buf, 0, e);
 					if (e) { log << warn << "convert error"; return { false, 3 }; }
 				}
 				break;
@@ -4787,7 +4788,8 @@ namespace claujson {
 					return { false, 4 };
 				}
 				bool e = false;
-				Convert(d.GetAllocator(), _key, &key - buf, buf_len, true, buf, 1, e);
+				auto len = simdjson_imple->structural_indexes[idx];
+				Convert(d.GetAllocator(), _key, &key - buf, len, true, buf, 1, e);
 				if (e) { log << warn << "convert error"; return { false, 5 }; }
 			}
 
@@ -4840,7 +4842,9 @@ namespace claujson {
 				{
 					bool e = false;
 					_Value _value;
-					Convert(d.GetAllocator(), _value, &value - buf, buf_len, false, buf, 1, e);
+
+					auto len = simdjson_imple->structural_indexes[idx];
+					Convert(d.GetAllocator(), _value, &value - buf, len, false, buf, 1, e);
 					if (e) { log << warn << "convert error"; return { false, 11 }; }
 					_stack[depth - 1]->as_object()->add_element(
 						std::move(_key), std::move(_value));
@@ -4859,7 +4863,9 @@ namespace claujson {
 					return { false, 12 };
 				}
 				bool e = false;
-				Convert(d.GetAllocator(), _key, &key_char - buf, buf_len, true, buf, 1, e);
+
+				auto len = simdjson_imple->structural_indexes[idx];
+				Convert(d.GetAllocator(), _key, &key_char - buf, len, true, buf, 1, e);
 				if (e) { log << warn << "convert error"; return { false, 12 }; }
 			}
 			goto object_field;
@@ -4929,7 +4935,9 @@ namespace claujson {
 				{
 					_Value _value;
 					bool e = false;
-					Convert(d.GetAllocator(), _value, &value - buf, buf_len, false, buf, 1, e);
+
+					auto len = simdjson_imple->structural_indexes[idx];
+					Convert(d.GetAllocator(), _value, &value - buf, len, false, buf, 1, e);
 					if (e) { log << warn << "convert error"; return { false, 19 }; }
 					_stack[depth - 1]->as_array()->add_element(std::move(_value));
 				}
