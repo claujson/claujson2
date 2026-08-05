@@ -677,7 +677,10 @@ namespace claujson {
 		_simdjson::dom::parser_for_claujson test_;
 		std::unique_ptr<ThreadPool> pool;
 	public:
+		uint64_t DEPTH_MAX = 1024;
+	public:
 		parser(int thr_num = 0);
+		~parser() = default;
 	public:
 		std::pair<bool, uint64_t> parse_small(StringView str, Document& d);
 

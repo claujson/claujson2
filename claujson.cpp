@@ -22,7 +22,7 @@
 	namespace claujson {
 
 
-		int64_t Arena::counter = 0;
+		//int64_t Arena::counter = 0;
 
 		// todo? make Document class? like simdjson?
 		_Value _Value::empty_value{ nullptr, false }; // valid is false..
@@ -4961,7 +4961,7 @@ namespace claujson {
 
 			log << info << "max depth " << max_depth << "\n";
 
-			if (max_depth > 1024) {
+			if (max_depth > DEPTH_MAX) {
 				log << warn << "too deep json";
 				return { false, 23 };
 			}
@@ -5170,7 +5170,8 @@ namespace claujson {
 							count_[i] += count_[i - 1];
 						}
 						log << info << "max depth " << sum << "\n";
-						if (sum > 1024) {
+						if (sum > DEPTH_MAX) {
+							log << warn << "too deep json";
 							free(count_vec);
 							return { false, -10 };
 						}
@@ -5186,7 +5187,8 @@ namespace claujson {
 							return { false, 0 };
 						}
 						log << info << "max depth " << max_depth << "\n";
-						if (max_depth > 1024) {
+						if (max_depth > DEPTH_MAX) {
+							log << warn << "too deep json";
 							free(count_vec);
 							return { false, -10 };
 						}
@@ -5510,8 +5512,9 @@ namespace claujson {
 					count_[i] += count_[i - 1];
 				}
 				log << info << "max depth " << sum << "\n";
-
-				if (sum > 1024) {
+				log << info << "depth max " << DEPTH_MAX << "\n";
+				if (sum > DEPTH_MAX) {
+					log << warn << "too deep json";
 					free(count_vec);
 					return { false, -10 };
 				}

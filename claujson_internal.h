@@ -784,7 +784,7 @@ namespace claujson {
 		Arena(const Arena&) = delete;
 		Arena& operator=(const Arena&) = delete;
 
-		static int64_t counter;
+		//static int64_t counter;
 	public:
 		template <class T>
 		T* allocate(uint64_t size, uint64_t align = alignof(T)) {
@@ -827,7 +827,7 @@ namespace claujson {
 				return nullptr;
 			}
 			if (newCap == size + 64) { // chk over size?
-				counter++;
+			//	counter++;
 			}
 
 			uint64_t remain = newBlock->capacity - newBlock->offset;
