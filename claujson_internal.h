@@ -607,7 +607,9 @@ namespace claujson {
 			}
 
 			~Block() {
-				delete[] data;
+				if (data) {
+					delete[] data;
+				}
 				data = nullptr;
 			//	mi_free(data);
 			}
@@ -676,10 +678,11 @@ namespace claujson {
 				Reset(no);
 			}
 		}
-
-		// link_from -> Reset -> DivideBlock -> link_from...
+	private:
+		// link_from -> Clear? -> DivideBlock -> link_from...
 		void Reset(int no) {
 			if (lastBlockVec[no].empty()) {
+				claujson::log << claujson::info << "lastBlockVec is empty in Reset\n";
 				return;
 			}
 			if (blockManager[no].last_block) {
@@ -700,7 +703,7 @@ namespace claujson {
 			head[no] = blockManager[no].Get(defaultBlockSize);
 			rear[no] = head[no];
 		}
-
+	public:
  		std::vector<BlockManager<Block>> DivideBlock(int no) {
 			if (lastBlockVec[no].empty()) { return {}; }
 			lastBlockVec[no].push_back(nullptr);
@@ -738,6 +741,7 @@ namespace claujson {
 			}
 			next = nullptr;
 		}
+		/*
 		void Reset() {
 			Reset(0);
 			Reset(1);
@@ -750,7 +754,8 @@ namespace claujson {
 				next = temp;
 			}
 			next = nullptr;
-		}
+		}*/
+
 		std::vector<std::vector<BlockManager<Block>>> DivideBlock() {
 			std::vector<std::vector<BlockManager<Block>>> result;
 			result.push_back(DivideBlock(0));
@@ -796,7 +801,7 @@ namespace claujson {
 				Block* block = now_pool->head[no];
 
 				if (block) {
-					if (block->offset + size < block->capacity) {
+					if (block->offset + size <= block->capacity) {
 						uint64_t remain = block->capacity - block->offset;
 
 						void* ptr = block->data + block->offset;
@@ -825,9 +830,6 @@ namespace claujson {
 			Block* newBlock = blockManager[no].Get(newCap); // new (std::nothrow) Block(newCap);
 			if (!newBlock) {
 				return nullptr;
-			}
-			if (newCap == size + 64) { // chk over size?
-			//	counter++;
 			}
 
 			uint64_t remain = newBlock->capacity - newBlock->offset;
@@ -903,7 +905,7 @@ namespace claujson {
 				}
 				else {
 					this->startBlockVec[i].push_back(other->head[i]);
-					this->lastBlockVec[i].push_back(this->rear[i]);
+					this->lastBlockVec[i].push_back(this->rear[i]); //
 
 					this->rear[i]->next = other->head[i];
 					this->rear[i] = other->rear[i];

@@ -2904,8 +2904,8 @@ namespace claujson {
 		stream << StringView(str_stream.buf(), str_stream.buf_size());
 	}
 
-	void LoadData2::write_(StrStream& stream, const _Value& global, StructuredPtr temp, bool pretty, bool hint) {
-
+	void LoadData2::write_(StrStream& _stream, const _Value& global, StructuredPtr temp, bool pretty, bool hint) {
+		StrStream stream = std::move(_stream);
 		my_vector<StructuredPtr> chk_list; // point for division?, virtual nodes? }}}?
 
 		{
@@ -2948,6 +2948,8 @@ namespace claujson {
 
 			write_primitive(stream, x);
 		}
+
+		_stream = std::move(stream);
 	}
 
 
@@ -4703,7 +4705,7 @@ namespace claujson {
 			int64_t max_depth = 0;
 			int64_t count_ = 0;
 
-			d.pool->Reset();
+			d.pool->Clear();
 			ut = _Value();
 
 			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -5011,7 +5013,7 @@ namespace claujson {
 
 			auto* simdjson_imple_ = test_.raw_implementation().get();
 
-			d.pool->Reset(); //
+			d.pool->Clear(); //
 			ut = _Value();
 
 			my_vector<int64_t> start(thr_num + 1);
@@ -5366,7 +5368,7 @@ namespace claujson {
 			dur = std::chrono::duration_cast<std::chrono::milliseconds>(a - _);
 			log << info << dur.count() << "ms\n";
 
-			d.pool->Reset(); //
+			d.pool->Clear(); //
 			ut = _Value();
 
 			my_vector<int64_t> start(thr_num + 1);
