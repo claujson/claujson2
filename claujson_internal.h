@@ -703,7 +703,7 @@ namespace claujson {
 			head[no] = blockManager[no].Get(defaultBlockSize);
 			rear[no] = head[no];
 		}
-	public:
+
  		std::vector<BlockManager<Block>> DivideBlock(int no) {
 			if (lastBlockVec[no].empty()) { return {}; }
 			lastBlockVec[no].push_back(nullptr);

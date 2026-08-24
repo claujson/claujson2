@@ -113,8 +113,6 @@ namespace claujson {
 
 		_Value clone(Arena* pool) const;
 
-		explicit operator bool() const;
-
 		explicit _Value(Array* x);
 		explicit _Value(Object* x);
 		explicit _Value(PartialJson* x);
@@ -737,11 +735,12 @@ namespace claujson {
 #endif
 }
 
-#define claujson_inline _simdjson_inline
-
-
 #define CLAUJSON_ERROR(msg) \
 	do { \
 		throw msg; \
 		/* error.make(__LINE__, StringView(msg)); */ \
 	} while (false) 
+
+#define claujson_inline _simdjson_inline
+
+
