@@ -1,7 +1,9 @@
 ﻿
 #include "claujson.h"
 
-#include <future>
+
+#include <thread>
+//#include <tbb/tbb.h>
 
 #include <set>
 #include <execution>
@@ -423,7 +425,7 @@
 			if (type == 3) {
 				return pj->add_item_type(key_buf_idx, key_next_buf_idx, val_buf_idx, val_next_buf_idx, buf, key_token_idx, val_token_idx);
 			}
-			//std::cout << "chk 1";
+			////std::cout << "chk 1";
 			return;
 		}
 
@@ -438,7 +440,7 @@
 			if (type == 3) {
 				return pj->add_item_type(val_buf_idx, val_next_buf_idx, buf, val_token_idx);
 			}
-			//std::cout << "chk 2";
+			////std::cout << "chk 2";
 			return;
 		}
 
@@ -453,7 +455,7 @@
 			if (this->type == 3) {
 				return pj->add_user_type(key_buf_idx, key_next_buf_idx, buf, type, key_token_idx, pool);
 			}
-			//std::cout << "chk 3";
+			////std::cout << "chk 3";
 			return;
 		}
 
@@ -467,7 +469,7 @@
 			if (this->type == 3) {
 				return pj->add_user_type(type, pool);
 			}
-			//std::cout << "chk 4";
+			////std::cout << "chk 4";
 			return;
 		}
 		*/
@@ -514,6 +516,8 @@
 		std::ostream& operator<<(std::ostream& stream, const claujson::_Value& data) {
 
 			if (false == data.is_valid()) {
+				std::cout << (int)data.type() << "\n";
+
 				stream << "--not valid\n";
 				return stream;
 			}
@@ -1389,7 +1393,7 @@ namespace claujson {
 					}
 				}*/
 
-				//std::cout << "chk.. " << clock() - a << "ms\n";
+				////std::cout << "chk.. " << clock() - a << "ms\n";
 				{
 					_Value vrt;
 					if (parent.is_object()) {
@@ -1612,7 +1616,7 @@ namespace claujson {
 			return pos;
 		}
 
-		 int Merge(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next)
+		static int Merge(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next)
 		{
 
 			// check!!
@@ -2007,29 +2011,16 @@ namespace claujson {
 					uint64_t pivot_num = parse_num;
 					
 					{ 
-					std::set<int64_t> _pivots;
-					my_vector<int64_t> pivots;
+					std::vector<int64_t> pivots;
 					//const int64_t num = token_arr_len; //
 
 					if (pivot_num > 0) {
-						my_vector<int64_t> pivot;
 						pivots.reserve(pivot_num + 1);
-						pivot.reserve(pivot_num);
 
-						pivot.push_back(start[0]);
+						pivots.push_back(start[0]);
 
 						for (uint64_t i = 1; i < parse_num; ++i) {
-							pivot.push_back(FindDivisionPlace(buf, imple, start[i], start[i + 1] - 1));
-						}
-
-						for (uint64_t i = 0; i < pivot.size(); ++i) {
-							if (pivot[i] != -1) {
-								_pivots.insert(pivot[i]);
-							}
-						}
-
-						for (auto& x : _pivots) {
-							pivots.push_back(x);
+							pivots.push_back(FindDivisionPlace(buf, imple, start[i], start[i + 1] - 1));
 						}
 
 						pivots.push_back(length);
@@ -2038,6 +2029,9 @@ namespace claujson {
 						pivots.push_back(start[0]);
 						pivots.push_back(length);
 					}
+
+					std::sort(pivots.begin(), pivots.end());
+					pivots.erase(std::unique(pivots.begin(), pivots.end()), pivots.end());
 
 					my_vector<StructuredPtr> next(pivots.size() - 1);
 					{
@@ -2062,38 +2056,21 @@ namespace claujson {
 
 						my_vector<std::future<bool>> result(pivots.size() - 1);
 						my_vector<int> err(pivots.size() - 1);
-						
-						
-
-						{
-							int64_t idx = pivots[1] - pivots[0];
-							int64_t _token_arr_len = idx;
-
-
-							result[0] = pool->enqueue(__LoadData, (buf), buf_len, (imple), start[0], _token_arr_len, (__global[0]), 0, 0,
-								&next[0], count_vec,
-
-								&err[0], 0, memory_pool[0]);
-						}
 
 						auto a = std::chrono::steady_clock::now();
-
-						for (uint64_t i = 1; i < pivots.size() - 1; ++i) {
+											
+						for (size_t i = 0; i < result.size(); ++i) {
 							int64_t _token_arr_len = pivots[i + 1] - pivots[i];
 
 							result[i] = pool->enqueue(__LoadData, (buf), buf_len, (imple), pivots[i], _token_arr_len, (__global[i]), 0, 0,
 								&next[i], count_vec,
-
-								& err[i], i, memory_pool[i]);
-
+								&err[i], i, memory_pool[i]);
 						}
 
-
-						// wait
-						for (uint64_t i = 0; i < result.size(); ++i) {
+						for (size_t i = 0; i < result.size(); ++i) {
 							result[i].get();
 						}
-
+					
 						auto b = std::chrono::steady_clock::now();
 						auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
 						log << info << "parse1 " << dur.count() << "ms\n";
@@ -3447,15 +3424,19 @@ namespace claujson {
 		my_vector<uint64_t> last(thr_num);
 		
 		{
-			std::set<uint64_t> _set; // remove dup.
+			std::vector<uint64_t> _set; // remove dup.
 
 			for (uint64_t i = 1; i < thr_num; ++i) {
 				uint64_t middle = size / thr_num * i;
-				_set.insert(middle);
+				_set.push_back(middle);
 			}
 
-			_set.insert(0);
+			_set.push_back(0);
 			
+			std::sort(_set.begin(), _set.end());
+			_set.erase(std::unique(_set.begin(), _set.end()), _set.end());
+
+
 			start.resize(1 + _set.size());
 			last.resize(_set.size());
 
@@ -4983,6 +4964,685 @@ namespace claujson {
 
 		return { false, -1 };
 	}
+
+
+	std::pair<bool, uint64_t> _parse(char* buf, uint64_t buf_len, _Value* _ut, _simdjson::internal::dom_parser_implementation* simdjson_imple, 
+		Arena* pool,
+		uint64_t start_idx, uint64_t last_idx, StructuredPtr& last_parent) {
+
+		uint64_t idx = start_idx;
+
+		_Value ut; //
+
+		my_vector<StructuredPtr> _stack(pool, 0, 1024); //
+		
+		bool cont = true; // continue
+
+		_Value _key;
+
+		// not end!
+		auto is_valid_idx = [last_idx](uint64_t idx) {
+			return idx >= 0 && idx < last_idx;
+			};
+
+		// ── 첫 번째 값 ────────────────────────────────────────────────────────
+		{
+			auto& value = buf[simdjson_imple->structural_indexes[idx++]];
+
+			switch (value) {
+			case '{':
+				ut = Object::Make(pool);
+				
+				cont = is_valid_idx(idx);
+
+				if (cont && buf[simdjson_imple->structural_indexes[idx]] == '}') {
+					++idx; cont = is_valid_idx(idx); break;
+				}
+				_stack.push_back(ut.as_object());	
+				goto object_begin;
+
+			case '[':
+				ut = Array::Make(pool);
+				
+				cont = is_valid_idx(idx);
+
+				if (cont && buf[simdjson_imple->structural_indexes[idx]] == ']') {
+					++idx; cont = is_valid_idx(idx); break;
+				}
+				_stack.push_back(ut.as_array());
+				goto array_begin;
+
+			case ':': case ',': case '}': case ']':
+				log << warn << "not primitive";
+				return { false, 3 };
+
+			default:
+			{
+				if (idx < simdjson_imple->n_structural_indexes) {
+					if (buf[simdjson_imple->structural_indexes[idx]] == ',' || buf[simdjson_imple->structural_indexes[idx]] == ']') {
+						--idx;
+						ut = Array::MakeVirtual(pool);
+						_stack.push_back(ut.as_array());
+						goto array_value;
+					}
+					else if (buf[simdjson_imple->structural_indexes[idx]] == ':') {
+						--idx;
+						ut = Object::MakeVirtual(pool);
+						_stack.push_back(ut.as_object());
+
+						{
+							auto& key = buf[simdjson_imple->structural_indexes[idx++]];
+							cont = is_valid_idx(idx);
+							if (key != '"') {
+								log << warn << "Object does not start with a key1 " << (int)key << " \n";
+								return { false, 4444 };
+							}
+							bool e = false;
+							uint64_t next_idx = 0;
+
+							if (idx < simdjson_imple->n_structural_indexes) {
+								next_idx = simdjson_imple->structural_indexes[idx];
+							}
+							else {
+								next_idx = buf_len;
+							}
+
+							Convert(pool, _key, &key - buf, next_idx, true, buf, 1, e);
+							if (e) { log << warn << "convert error"; return { false, 5 }; }
+						}
+
+						goto object_field;
+					}
+					else {
+						//std::cout << "chk.. " << (char) buf[simdjson_imple->structural_indexes[idx]] << "\n";
+						return { false, 555555555 };
+					}
+				}
+				else {
+					auto next_idx = buf_len;
+					bool e = false;
+					Convert(pool, ut, &value - buf, next_idx, false, buf, 0, e);
+					if (e) { log << warn << "convert error"; return { false, 3 }; }
+				}
+			}
+			break;
+			}
+		}
+		goto document_end;
+
+		// ── Object ────────────────────────────────────────────────────────────
+	object_begin:
+		if (!cont) {
+			goto document_end;
+		}
+
+		{
+			auto& key = buf[simdjson_imple->structural_indexes[idx++]];
+			cont = is_valid_idx(idx);
+			if (key != '"') {
+				log << warn << "Object does not start with a key";
+				return { false, 4 };
+			}
+			bool e = false;
+			uint64_t next_idx = 0;
+
+			if (idx < simdjson_imple->n_structural_indexes) {
+				next_idx = simdjson_imple->structural_indexes[idx];
+			}
+			else {
+				next_idx = buf_len;
+			}
+
+			Convert(pool, _key, &key - buf, next_idx, true, buf, 1, e);
+			if (e) { log << warn << "convert error"; return { false, 5 }; }
+		}
+
+	object_field:
+		if (!cont) {
+			goto document_end;
+		}
+
+		if (_simdjson_unlikely(
+			buf[simdjson_imple->structural_indexes[idx++]] != ':')) {
+			log << warn << "Missing colon after key in object";
+			return { false, 6 };
+		}
+
+		cont = is_valid_idx(idx);
+
+		{
+			if (!cont) {
+				goto document_end;
+			}
+
+			auto& value = buf[simdjson_imple->structural_indexes[idx++]];
+
+			cont = is_valid_idx(idx);
+			if (!cont) {
+				goto document_end;
+			}
+
+			switch (value) {
+
+			case '{':
+				_stack.back().add_object_element(
+					std::move(_key), Object::Make(pool));
+
+				if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+					++idx; cont = is_valid_idx(idx); break;
+				}
+				{
+					auto& parent = _stack.back();
+					auto& child = parent.get_value_list(parent.size() - 1);
+					_stack.push_back(child);
+					goto object_begin;
+				}
+
+			case '[':
+				_stack.back().add_object_element(
+					std::move(_key), Array::Make(pool));
+
+				if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+					++idx; cont = is_valid_idx(idx); break;
+				}
+				{
+					auto& parent = _stack.back();
+					auto& child = parent.get_value_list(parent.size() - 1);
+					_stack.push_back(child);
+					goto array_begin;
+				}
+
+			case ',': { log << warn << "wrong comma."; return { false, 7 }; }
+			case ':': { log << warn << "wrong colon."; return { false, 8 }; }
+			case '}': { log << warn << "wrong }.";     return { false, 9 }; }
+			case ']': { log << warn << "wrong ].";     return { false, 10 }; }
+
+			default:
+			{
+				bool e = false;
+				_Value _value;
+
+				uint64_t next_idx = 0;
+
+				if (idx < simdjson_imple->n_structural_indexes) {
+					next_idx = simdjson_imple->structural_indexes[idx];
+				}
+				else {
+					next_idx = buf_len;
+				}
+
+				Convert(pool, _value, &value - buf, next_idx, false, buf, 1, e);
+				if (e) { log << warn << "convert error"; return { false, 11 }; }
+				
+				_stack.back().add_object_element(
+					std::move(_key), std::move(_value));
+			}
+			break;
+			}
+		}
+
+	object_continue:
+		if (!cont) {
+			goto document_end;
+		}
+		{
+			char ch = buf[simdjson_imple->structural_indexes[idx++]];
+
+			cont = is_valid_idx(idx);
+
+			switch (ch) {
+			case ',':
+			{
+				if (!cont) {
+					goto document_end;
+				}
+
+				auto& key_char = buf[simdjson_imple->structural_indexes[idx++]];
+
+				cont = is_valid_idx(idx);
+
+				if (_simdjson_unlikely(key_char != '"')) {
+					log << warn << "Key string missing at beginning of field in object";
+					//std::cout << StringView(buf + simdjson_imple->structural_indexes[idx - 3], 20) << "\n";
+					return { false, 12 };
+				}
+				bool e = false;
+
+				uint64_t next_idx = 0;
+
+				if (idx < simdjson_imple->n_structural_indexes) {
+					next_idx = simdjson_imple->structural_indexes[idx];
+				}
+				else {
+					next_idx = buf_len;
+				}
+				Convert(pool, _key, &key_char - buf, next_idx, true, buf, 1, e);
+				if (e) { log << warn << "convert error"; return { false, 12 }; }
+			}
+			goto object_field;
+			case '}': goto scope_end;
+			case ':': { log << warn << "wrong colon."; return { false, 13 }; }
+			default:  log << warn << "No comma between object fields : " << ch << " " << idx << " " << last_idx << " \n"; return {false, 14};
+			}
+		}
+	scope_end:
+
+		if (idx >= last_idx) {
+			goto document_end;
+		}
+
+		_stack.pop_back();
+
+		if (_stack.empty()) {
+			// chk parent is array or object ? 
+			// } or ] // , or } or ] // before is , -> key : or val , or val ] or { key or [ val
+			char ch = buf[simdjson_imple->structural_indexes[idx++]];
+			cont = is_valid_idx(idx);
+
+			if (ch == '}') {
+				// virtual object
+				_Value vo = Object::MakeVirtual(pool);
+				vo.as_object()->add_element(_Value(), std::move(ut));
+				ut = std::move(vo);
+
+				goto scope_end;
+			}
+			else if (ch == ']') {
+				// virtual array
+				_Value va = Array::MakeVirtual(pool);
+				va.as_array()->add_element(std::move(ut));
+				ut = std::move(va);
+
+				goto scope_end;
+			}
+			else if (ch == ',' && idx < last_idx) {
+				ch = buf[simdjson_imple->structural_indexes[idx++]];
+				if (ch == '{' || ch == '[') {
+					_Value va = Array::MakeVirtual(pool);
+					va.as_array()->add_element(std::move(ut));
+					va.as_array()->add_element(ch == '{' ? Object::Make(pool) : Array::Make(pool));
+					ut = std::move(va);
+
+					_stack.push_back(ut);
+					_stack.push_back(ut.as_structured().get_value_list(1));
+
+					cont = is_valid_idx(idx);
+					if (!cont) {
+						goto document_end;
+					}
+
+					if (ch == '{') {
+						goto object_begin;
+					}
+					goto array_begin;
+				}
+				else if (idx < last_idx) {
+					ch = buf[simdjson_imple->structural_indexes[idx++]];
+					if (ch == ':') {
+						idx = idx - 2;
+						// virtual object
+						_Value vo = Object::MakeVirtual(pool);
+						vo.as_object()->add_element(_Value(), std::move(ut));
+						ut = std::move(vo);
+						
+						_stack.push_back(ut.as_structured());
+						
+						goto object_begin;
+					}
+					else if (ch == ',' || ch == ']') {
+						idx = idx - 2;
+						// virtual array
+						_Value va = Array::MakeVirtual(pool);
+						va.as_array()->add_element(std::move(ut));
+						ut = std::move(va);
+
+						_stack.push_back(ut.as_structured());
+
+						goto array_begin;
+					}
+					else {
+						//std::cout << "before ch is " << buf[simdjson_imple->structural_indexes[idx + 1]] << "\t";
+						//std::cout << "ch is " << ch << "\n";
+						return { false, -91 };
+					}
+				}
+				else {
+					return { false, -911 };
+				}
+			}
+			else {
+				return { false, -92 };
+			}
+
+			if (_stack.back().is_array()) goto array_continue;
+			goto object_continue;
+		}
+			
+		// ✅ is_array 벡터 없이 포인터로 직접 판별
+		if (_stack.back().is_array()) goto array_continue;
+		goto object_continue;
+
+		// ── Array ─────────────────────────────────────────────────────────────
+	array_begin:
+		if (!cont) {
+			goto document_end;
+		}
+
+	array_value:
+		if (!cont) {
+			goto document_end;
+		}
+
+		{
+			auto& value = buf[simdjson_imple->structural_indexes[idx++]];
+
+			cont = is_valid_idx(idx);
+			if (!cont) {
+				goto document_end;
+			}
+
+			switch (value) {
+
+			case '{':
+				_stack.back().add_array_element(
+					Object::Make(pool));
+				if (!cont) {
+					goto document_end;
+				}
+				if (buf[simdjson_imple->structural_indexes[idx]] == '}') {
+					++idx; cont = is_valid_idx(idx); break;
+				}
+				{
+					auto& parent = _stack.back();
+					auto& child = parent.get_value_list(parent.size() - 1);
+					_stack.push_back(child);
+					goto object_begin;
+				}
+
+			case '[':
+				_stack.back().add_array_element(
+					Array::Make(pool));
+				if (!cont) {
+					goto document_end;
+				}
+				if (buf[simdjson_imple->structural_indexes[idx]] == ']') {
+					++idx; cont = is_valid_idx(idx); break;
+				}
+				{
+					auto& parent = _stack.back();
+					auto& child = parent.get_value_list(parent.size() - 1);
+					_stack.push_back(child);
+					goto array_begin;
+				}
+
+			case ',': { log << warn << "wrong comma."; return { false, 15 }; }
+			case ':': { log << warn << "wrong colon."; return { false, 16 }; }
+			case '}': { log << warn << "wrong }.";     return { false, 17 }; }
+			case ']': { log << warn << "wrong ].";     return { false, 18 }; }
+
+			default:
+			{
+				_Value _value;
+				bool e = false;
+
+				uint64_t next_idx = 0;
+
+				if (idx < simdjson_imple->n_structural_indexes) {
+					next_idx = simdjson_imple->structural_indexes[idx];
+				}
+				else {
+					next_idx = buf_len;
+				}
+
+				Convert(pool, _value, &value - buf, next_idx, false, buf, 1, e);
+				if (e) { log << warn << "convert error"; return { false, 19 }; }
+				_stack.back().add_array_element(std::move(_value));
+			}
+			break;
+			}
+		}
+
+	array_continue:
+		if (!cont) {
+			goto document_end;
+		}
+
+		switch (buf[simdjson_imple->structural_indexes[idx++]]) {
+		case ',': cont = is_valid_idx(idx); goto array_value;
+		case ']': cont = is_valid_idx(idx); goto scope_end;
+		case ':': { log << warn << "wrong colon."; return { false, 20 }; }
+		default:  log << warn << "Missing comma between array values " << buf[simdjson_imple->structural_indexes[idx - 1]] << "\n";
+			StringView s((const char*)&buf[simdjson_imple->structural_indexes[idx - 3]], 45);
+			//std::cout << s << "\n";
+			return {false, 21};
+		}
+
+	document_end:
+		
+		if (idx < last_idx) {
+			log << warn << "idx < last_idx" << idx << " " << last_idx << "\n";
+			return { false, 23 };
+		}
+
+		if (idx < simdjson_imple->n_structural_indexes) {
+		//	log << warn << "More than one JSON value at the root of the document";
+		//	return { false, 22 };
+		}
+
+
+		{
+			if (!_stack.empty()) {
+				if (_stack.back() == ut) {
+					last_parent = ut.as_structured();
+				}
+				else {
+					last_parent = _stack.back();
+				}
+			}
+			else {
+				last_parent = ut.as_structured();
+			}
+		}
+
+		if (_ut) {
+			*_ut = std::move(ut);
+		}
+
+		//std::cout << "success";
+		return { true, 0 };
+	}
+
+	int Merge(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next)
+	{
+		// check!!
+		while (ut.get_data_size() >= 1
+			&& ut.get_value_list(0).is_structured() && (ut.get_value_list(0).is_virtual()))
+		{
+			ut = StructuredPtr(ut.get_value_list(0));
+		}
+
+		while (true) {
+
+			class StructuredPtr _ut = ut;
+			class StructuredPtr _next = next;
+
+			//log << warn  << "chk\n";
+			if (ut_next && _ut == *ut_next) { // chk_next_ut
+				*ut_next = _next;
+
+				log << info << "chked in merge...\n"; // special case!
+			}
+
+			if (_next.is_array() && _ut.is_object()) {
+				CLAUJSON_ERROR("Error in Merge, next is array but child? is object");
+			}
+			if (_next.is_object() && _ut.is_array()) {
+				CLAUJSON_ERROR("Error in Merge, next is object but child? is array");
+			}
+
+			int start_offset = 0;
+			if (_ut.get_data_size() > 0 && _ut.get_value_list(0).is_structured() && _ut.get_value_list(0).is_virtual()) {
+				++start_offset;
+			}
+
+			_next.MergeWith(_ut, start_offset);
+
+			if (_ut.get_data_size() > 0 && _ut.get_value_list(0).is_structured() && _ut.get_value_list(0).is_virtual()) {
+				//clean(_ut.get_value_list(0));
+			}
+
+			_ut.clear();
+
+			ut = ut.get_parent();
+			next = next.get_parent();
+
+
+			if (next && ut) {
+				//
+			}
+			else {
+				// right_depth > left_depth
+				if (!next && ut) {
+					return -1;
+				}
+				else if (next && !ut) {
+					return 1;
+				}
+
+				return 0;
+			}
+		}
+	}
+
+	std::pair<bool, uint64_t> parser::parse_small2(StringView str, Document& d, uint64_t thr_num) {
+
+		auto _ = std::chrono::steady_clock::now();
+
+		if (thr_num <= 0) {
+			thr_num = std::max((int)std::thread::hardware_concurrency() - 2, 1);
+		}
+		if (thr_num <= 0) {
+			thr_num = 1;
+		}
+
+		_Value ut;
+
+		{
+			log << info << "simdjson-stage1 start\n";
+			auto x = test_.parse(str.data(), str.size());
+			if (x.error() != _simdjson::error_code::SUCCESS) {
+				log << warn << "stage1 error : " << x.error() << "\n";
+				return { false, 0 };
+			}
+
+			const auto& buf = test_.raw_buf().get();
+			const auto buf_len = test_.raw_len();
+			auto* simdjson_imple = test_.raw_implementation().get();
+			const auto token_length = simdjson_imple->n_structural_indexes;
+
+			d.pool->Clear();
+			ut = _Value();
+
+			auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::steady_clock::now() - _);
+			log << info << dur.count() << "ms\n";
+
+			if (simdjson_imple->n_structural_indexes == 0) {
+				return { false, 0 };
+			}
+
+			std::vector<uint64_t> _set;
+
+			my_vector<int64_t> start(thr_num + 1);
+			//	my_vector<uint64_t> start(thr_num + 1);
+			my_vector<uint64_t> last(thr_num);
+
+			for (uint64_t t = 1; t < thr_num; ++t) {
+				uint64_t middle = token_length / thr_num * t;
+				for (uint64_t i = middle; i + 1 < token_length; ++i) {
+					if (buf[simdjson_imple->structural_indexes[i]] == ',') {
+						_set.push_back(i + 1); break;
+					}
+				}
+			}
+
+			_set.push_back(0);
+
+			std::sort(_set.begin(), _set.end());
+			_set.erase(std::unique(_set.begin(), _set.end()), _set.end());
+
+			start.resize(1 + _set.size());
+			last.resize(_set.size());
+
+			int count = 0;
+			for (auto x : _set) {
+				start[count] = x;
+				++count;
+			}
+			start[_set.size()] = token_length;
+
+			for (uint64_t i = 0; i < _set.size(); ++i) {
+				last[i] = start[i + 1];
+			}
+
+			my_vector<std::future<std::pair<bool, uint64_t>>> thr_result(_set.size());
+			my_vector<StructuredPtr> last_parent(_set.size());
+			my_vector<_Value> uts(_set.size());
+
+
+			std::vector<std::vector<BlockManager<Arena::Block>>> divided = d.GetAllocator()->DivideBlock();
+			std::vector<Arena*> memory_pool = std::vector<Arena*>(_set.size());
+			{
+				uint64_t i = 0;
+				for (auto*& x : memory_pool) {
+					if (i < divided[0].size()) {
+						x = new Arena(divided[0][i].start_block, divided[0][i].last_block,
+							divided[1][i].start_block, divided[1][i].last_block);
+					}
+					else {
+						x = new Arena();
+					}
+					++i;
+				}
+			}
+
+			for (uint64_t i = 0; i < _set.size(); ++i) {
+				uts[i] = _Value();
+				last_parent[i] = nullptr;
+				thr_result[i] = pool->enqueue(_parse, buf, buf_len, &uts[i], simdjson_imple, std::ref(memory_pool[i]), start[i], last[i], std::ref(last_parent[i]));
+			}
+			bool pass = true;
+			for (auto& x : thr_result) {
+				auto result = x.get();
+				pass = pass && result.first;
+
+				//std::cout << (int64_t)result.second << "ends\n";
+			}
+
+			for (uint64_t i = 0; i < memory_pool.size(); ++i) {
+				d.GetAllocator()->link_from(memory_pool[i]);
+			}
+
+			if (!pass) {
+				return { false, -1 };
+			}
+			
+			ut = std::move(uts[0]); 
+
+			for (uint64_t i = 1; i < uts.size(); ++i) {
+				int merge_result = Merge(last_parent[i - 1], uts[i], &last_parent[i]);
+			}
+
+			d.Get() = std::move(ut);
+		}
+
+		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - _);
+		log << info << "parse_small2 " << dur.count() << "ms\n";
+
+		return { true, 0 };
+	}
+
 	std::pair<bool, uint64_t> parser::parse(const std::string& fileName, Document& d, uint64_t thr_num)
 	{
 		if (thr_num <= 0) {
@@ -5056,7 +5716,7 @@ namespace claujson {
 
 			b = std::chrono::steady_clock::now();
 
-				std::set<uint64_t> _set;
+				std::vector<uint64_t> _set;
 			//if (!is_valid(test, length - 1)) {
 			//	return { false, 0 };
 			//}
@@ -5083,12 +5743,15 @@ namespace claujson {
 						uint64_t middle = length / thr_num * t;
 						for (uint64_t i = middle; i < length; ++i) {
 							if (buf[simdjson_imple_->structural_indexes[i]] == ',') {
-								_set.insert(i); break;
+								_set.push_back(i); break;
 							}
 						}
 					}
 
-					_set.insert(0);
+					_set.push_back(0);
+
+					std::sort(_set.begin(), _set.end());
+					_set.erase(std::unique(_set.begin(), _set.end()), _set.end());
 
 					start.resize(1 + _set.size());
 					last.resize(_set.size());
@@ -5340,7 +6003,7 @@ namespace claujson {
 	{
 		_Value& ut = d.Get(); 
 
-		log << info << str << "\n";
+		//log << info << str << "\n";
 
 		if (thr_num <= 0) {
 			thr_num = std::max((int)std::thread::hardware_concurrency() - 2, 1);
@@ -5404,7 +6067,7 @@ namespace claujson {
 
 			//if (use_all_function)
 			
-			std::set<uint64_t> _set;
+			std::vector<uint64_t> _set;
 			{
 				//my_vector<uint64_t> start(thr_num + 1);
 				my_vector<uint64_t> last(thr_num);
@@ -5418,7 +6081,7 @@ namespace claujson {
 					uint64_t middle = length / thr_num * i;
 					for (uint64_t i = middle; i < length; ++i) {
 						if (buf[simdjson_imple_->structural_indexes[i]] == ',') {
-							middle = i; _set.insert(i); break;
+							middle = i; _set.push_back(i); break;
 						}
 
 						if (i == length - 1) {
@@ -5427,7 +6090,9 @@ namespace claujson {
 					}
 				}
 
-				_set.insert(0);
+				_set.push_back(0);
+				std::sort(_set.begin(), _set.end());
+				_set.erase(std::unique(_set.begin(), _set.end()), _set.end());
 
 				start.resize(1 + _set.size());
 				last.resize(_set.size());

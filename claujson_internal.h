@@ -526,8 +526,8 @@ namespace claujson {
 	public:
 		Pair() {}
 		Pair(Key&& first, Data&& second) : first(std::move(first)), second(std::move(second)) {}
-		Pair(const Key& first, Data&& second) : first((first)), second(std::move(second)) {}
-		Pair(Key&& first, const Data& second) : first(std::move(first)), second((second)) {}
+		//Pair(const Key& first, Data&& second) : first((first)), second(std::move(second)) {}
+		//Pair(Key&& first, const Data& second) : first(std::move(first)), second((second)) {}
 	};
 
 	// todo - smartpointer? std::unique<Block> ?
@@ -593,6 +593,8 @@ namespace claujson {
 	// bug - 크기를 줄일떄? 메모리 소비?
 	// memory_pool?
 	class Arena {
+		template <class T>
+		friend class Vector2;
 	public:
 		struct Block {
 			Block* next; //
@@ -617,7 +619,7 @@ namespace claujson {
 			Block(const Block&) = delete;
 			Block& operator=(const Block&) = delete;
 		};
-	public:
+	private:
 		Block* head[2];
 		Block* rear[2];
 		const uint64_t defaultBlockSize;
@@ -1165,8 +1167,8 @@ namespace claujson {
 			m_size = sz;
 		}
 */
-		template <class U>
-		void push_back(U&& x) {
+		
+		void push_back(const T& x) {
 			if (size() >= capacity()) {
 				if (capacity() == 0) {
 					expand(2);
@@ -1177,7 +1179,21 @@ namespace claujson {
 			}
 
 			//new (&m_arr[m_size]) T();
-			new (&m_arr[m_size++]) T(std::forward<U>(x));
+			new (&m_arr[m_size++]) T(x);
+		}
+
+		void push_back(T&& x) {
+			if (size() >= capacity()) {
+				if (capacity() == 0) {
+					expand(2);
+				}
+				else {
+					expand(2 * capacity());
+				}
+			}
+
+			//new (&m_arr[m_size]) T();
+			new (&m_arr[m_size++]) T(std::move(x));
 		}
 
 		template<typename... _Args>
@@ -1245,9 +1261,18 @@ namespace claujson {
 		void expand(uint64_t new_capacity) {
 			if (pool) {
 				T* temp = (T*)pool->allocate<T>(sizeof(T) * new_capacity);
-				for (uint64_t i = 0; i < m_size; ++i) {
-					//new (temp + i) T();
-					new (temp + i) T(std::move(m_arr[i]));
+				
+				if (std::is_trivially_copyable_v<T>) {
+					std::memcpy(
+						temp,
+						m_arr,
+						sizeof(T) * m_size
+					);
+				}
+				else {
+					for (uint64_t i = 0; i < m_size; ++i) {
+						new (temp + i) T(std::move(m_arr[i]));
+					}
 				}
 
 				//for (uint64_t i = 0; i < m_size; ++i) {
@@ -1268,24 +1293,6 @@ namespace claujson {
 				}
 
 				m_arr = temp;
-			}
-			m_capacity = new_capacity;
-		}
-		// for char array.
-		void expand2(uint64_t new_capacity) {
-			if (pool) {
-				char* temp = (char*)pool->allocate<char>(sizeof(char) * new_capacity);
-				memcpy(temp, m_arr, sizeof(char) * m_size);
-				if (temp != (char*)m_arr) {
-					pool->deallocate<char>((char*)m_arr, m_capacity);
-				}
-				m_arr = (T*)temp;
-			}
-			else {
-				char* temp = new (std::nothrow) char[new_capacity]();
-				memcpy(temp, (char*)m_arr, sizeof(char) * m_size);
-				delete[] (char*)m_arr;
-				m_arr = (T*)temp;
 			}
 			m_capacity = new_capacity;
 		}

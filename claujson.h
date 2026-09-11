@@ -680,7 +680,6 @@ namespace claujson {
 		parser(int thr_num = 0);
 		~parser() = default;
 	public:
-		std::pair<bool, uint64_t> parse_small(StringView str, Document& d);
 
 		// parse json file.
 		std::pair<bool, uint64_t> parse(const std::string& fileName, Document& d, uint64_t thr_num);
@@ -689,6 +688,9 @@ namespace claujson {
 
 		// parse json str.
 		std::pair<bool, uint64_t> parse_str(StringView str, Document& d, uint64_t thr_num);
+
+		std::pair<bool, uint64_t> parse_small(StringView str, Document& d);
+		std::pair<bool, uint64_t> parse_small2(StringView str, Document& d, uint64_t thr_num);
 
 #if __cpp_lib_char8_t
 		// C++20~
