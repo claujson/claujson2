@@ -1262,7 +1262,7 @@ namespace claujson {
 			if (pool) {
 				T* temp = (T*)pool->allocate<T>(sizeof(T) * new_capacity);
 				
-				if (std::is_trivially_copyable_v<T>) {
+				if (std::is_trivially_copyable<T>::value) {
 					std::memcpy(
 						temp,
 						m_arr,
