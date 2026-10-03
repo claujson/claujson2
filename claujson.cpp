@@ -2493,7 +2493,8 @@ namespace claujson {
 						// Merge
 
 						{
-							int i = 0;
+							/*int i = 0;
+							
 							my_vector<int> chk(parse_num);
 							auto x = next.begin();
 							auto y = __global.begin();
@@ -2510,10 +2511,10 @@ namespace claujson {
 									break;
 								}
 							}
-
+							*/
 							uint64_t start = 0;
 							uint64_t last = pivots.size() - 1 - 1;
-
+							/*
 							for (uint64_t i = 0; i < pivots.size() - 1; ++i) {
 								if (chk[i] == 0) {
 									start = i;
@@ -2527,6 +2528,7 @@ namespace claujson {
 									break;
 								}
 							}
+							*/
 
 							if (__global[start].get_data_size() > 0 && __global[start].get_value_list(0).is_structured()
 								&& (__global[start].get_value_list(0).is_virtual())) {
@@ -2547,18 +2549,22 @@ namespace claujson {
 
 							for (uint64_t i = start + 1; i <= last; ++i) {
 
+								/*
 								if (chk[i]) {
 									continue;
 								}
-
+								*/
+								
 								// linearly merge and error check...
 								uint64_t before = i - 1;
-								for (uint64_t k = i; k > 0; --k) {
+								
+								/*for (uint64_t k = i; k > 0; --k) {
 									if (chk[k - 1] == 0) {
 										before = k - 1;
 										break;
 									}
 								}
+								*/
 
 								int err = Merge(next[before], __global[i], &next[i]);
 
@@ -2580,7 +2586,7 @@ namespace claujson {
 
 							_global_memory_pool->link_from(memory_pool[start]);
 							for (uint64_t i = start + 1; i <= last; ++i) {
-								if (chk[i]) { delete memory_pool[i]; memory_pool[i] = nullptr; continue; }
+								/* if (chk[i]) { delete memory_pool[i]; memory_pool[i] = nullptr; continue; } */
 								_global_memory_pool->link_from(memory_pool[i]);
 							}	
 						}
@@ -6013,9 +6019,43 @@ namespace claujson {
 			}
 			
 			ut = std::move(uts[0]); 
+			
+			try {
+				if (ut.is_structured() && ut.as_structured().get_data_size() > 0 && ut.as_structured().get_value_list(0).is_structured()
+					&& (ut.as_structured().get_value_list(0).is_virtual())) {
+					log << warn << "not valid json1\n";
+					throw 1;
+				}
 
-			for (uint64_t i = 1; i < uts.size(); ++i) {
-				int merge_result = Merge(last_parent[i - 1], uts[i], &last_parent[i]);
+				for (uint64_t i = 1; i < uts.size(); ++i) {
+					int merge_result = Merge(last_parent[i - 1], uts[i], &last_parent[i]);
+
+					if (-1 == merge_result) {
+						log << warn << "chk " << i << "\n";
+						log << warn << "not valid json2\n";
+						throw 4;
+					}
+					else if (i == uts.size() - 1 && 1 == merge_result) {
+						log << warn << "not valid json3\n";
+						throw 5;
+					}
+				}
+
+				if (last_parent[uts.size() - 1] && !(last_parent[uts.size() - 1].get_parent() == nullptr)) {
+					log << warn << "not valid json4\n";
+					throw 2;
+				}
+
+				if (ut.is_structured() && ut.as_structured().get_data_size() > 1) { // bug fix..
+					log << warn << "not valid json5\n";
+					throw 6;
+				}
+			}
+			catch (int x) {
+				return { false, x };
+			}
+			catch (...) {
+				return { false, -2 };
 			}
 
 			d.Get() = std::move(ut);
