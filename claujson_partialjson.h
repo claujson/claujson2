@@ -24,10 +24,14 @@ namespace claujson {
 		friend class Object;
 		friend class Array;
 		friend class StructuredPtr;
+		friend class _Value;
 
 		PartialJson(Arena* pool);
 
 	public:
+
+		static _Value Make(Arena* pool);
+		
 		bool is_partial_json() const;
 
 		bool is_object() const;

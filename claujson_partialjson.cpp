@@ -23,6 +23,27 @@ namespace claujson {
 		return false;
 	}
 
+	_Value PartialJson::Make(Arena* pool) {
+		// chk pool must not nullptr.
+
+		PartialJson* temp = nullptr;
+		if (pool) {
+			temp = (PartialJson*)pool->allocate<PartialJson>(sizeof(PartialJson), alignof(PartialJson)); // new (std::nothrow) Array();
+			new (temp) PartialJson(pool);
+			temp->arr_vec = my_vector<_Value>(pool, 0, 2);
+		}
+		else {
+			temp = new (std::nothrow) PartialJson(pool);
+		}
+		if (temp == nullptr) {
+			_Value v;
+			v._type = _ValueType::_VALUE_TYPE_ERROR;
+			return v;
+		}
+
+		return _Value(temp);
+	}
+
 	uint64_t PartialJson::get_data_size() const {
 		int count = 0;
 

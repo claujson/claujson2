@@ -664,12 +664,12 @@ namespace claujson {
 	_Value::_Value() : _int_val(0), _type(_ValueType::NONE) {}
 
 	bool _Value::operator==(const _Value& other) const { // chk array or object?
+		if (this->is_str() && other.is_str()) {
+			return *this->_str_val == *other._str_val;
+		}
+
 		if (this->_type == other._type) {
 			switch (this->_type) {
-			case _ValueType::STRING:
-			case _ValueType::SHORT_STRING:
-				return *this->_str_val == *other._str_val;
-				break;
 			case _ValueType::INT:
 				return this->_int_val == other._int_val;
 				break;
@@ -741,11 +741,12 @@ namespace claujson {
 	}
 
 	bool _Value::operator<(const _Value& other) const {
+		if (this->is_str() && other.is_str()) {
+			return *this->_str_val < *other._str_val;
+		}
+
 		if (this->_type == other._type) {
 			switch (this->_type) {
-			case _ValueType::STRING:
-			case _ValueType::SHORT_STRING:
-				return *this->_str_val < *other._str_val;
 				break;
 			case _ValueType::INT:
 				return this->_int_val < other._int_val;

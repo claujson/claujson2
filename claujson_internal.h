@@ -593,6 +593,7 @@ namespace claujson {
 	// bug - 크기를 줄일떄? 메모리 소비?
 	// memory_pool?
 	class Arena {
+		friend class State;
 		template <class T>
 		friend class Vector2;
 	public:

@@ -670,6 +670,288 @@ namespace claujson {
 
 namespace claujson {
 
+	inline bool is_white_space(char ch) {
+		return ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t';
+	}
+
+	// info for streaming parsing?
+	class State {
+	private:
+		int state = 0;
+		std::vector<char> vec;
+		_Value pj;
+		StructuredPtr ptr;
+		int64_t next_start = 0;
+		int64_t _offset = 0;
+		int first = 0;
+		bool _is_last = false;
+		bool _ends_with_remain = false;
+		bool _return_ = false;
+		Document* doc;
+	public:
+		Vector<int8_t> is_array;
+		std::vector<int8_t> is_in_array;
+		int64_t depth_max = 0;
+		int64_t depth_base = 0;
+		int64_t next_state = 0;
+
+	public:
+		explicit State(Document* p);
+
+		~State();
+
+	public:
+
+		bool _return() const noexcept { return _return_; }
+
+		int merge(StructuredPtr other, StructuredPtr* other_now);
+
+		bool ends_with_remain() const noexcept {
+			return _ends_with_remain;
+		}
+
+		StringView push(StringView s) {
+			return _push(s);
+		}
+
+		std::vector<Arena*> get_pool(uint64_t sz) {
+			std::vector<Arena*> memory_pool(sz, nullptr);
+			Arena* next = doc->GetAllocator();
+			Arena* before = nullptr;
+			uint64_t i = 0;
+			while (next) {
+				memory_pool[i] = next;
+				++i;
+				before = next;
+				next = next->next;
+			}
+			for (; i < sz; ++i) {
+				memory_pool[i] = new Arena();
+				if (before) {
+					before->next = memory_pool[i];
+				}
+				before = memory_pool[i];
+				memory_pool[i]->now_pool = doc->GetAllocator();
+			}
+			return memory_pool;
+		}
+
+		void set_pool(std::vector<Arena*>& pools) {
+			//
+		}
+
+	private:
+		// if fail? then return empty StringView!
+		StringView _push(StringView s) {
+			_offset = 0;
+
+			if (s.empty()) {
+				next_start = 0;
+				return StringView();
+			}
+
+			if (_return_) {
+				_offset = 0;
+				_return_ = false;
+			}
+
+			vec.insert(vec.end(), s.data(), s.data() + s.size());
+
+			// find comma(,)
+			int state = 0;
+			//std::cout << "depth base " << this->depth_base << "\n";
+			int64_t depth = this->depth_base;
+			int64_t last_comma = -1;
+			int64_t before_last_comma = -1;
+			int64_t last_depth = 0;
+			int64_t before_last_depth = 0;
+			int64_t count = 0;
+			int64_t count_token = 0;
+			int64_t token_start = 0;
+
+			for (auto x : vec) {
+				++count;
+
+				if (is_white_space(x)) {
+					if (state == 0) {
+						const int64_t token_last = count - 1;
+
+						if (token_last - token_start > 0) {
+							if (depth == 0) {
+								log << info << "chk depth == 0\n";
+								for (uint64_t i = count; i < vec.size(); ++i) {
+									if (!is_white_space(vec[i])) {
+										_ends_with_remain = true;
+										break;
+									}
+								}
+								next_start = 0;
+								this->depth_base = depth;
+								_is_last = true;
+								++first;
+
+								return StringView(vec.data(), count);
+							}
+						}
+
+						token_start = count;
+					}
+					continue;
+				}
+
+				if (state == 0) {
+					const int64_t token_last = count - 1;
+
+					switch (x) {
+					case '\"':
+					case '[':
+					case ']':
+					case '{':
+					case '}':
+					case ':':
+					case ',':
+						if (token_last - token_start > 0) {
+							if (depth == 0) {
+								log << info << "chk depth == 0\n";
+								for (uint64_t i = count; i < vec.size(); ++i) {
+									if (!is_white_space(vec[i])) {
+										_ends_with_remain = true;
+										break;
+									}
+								}
+								next_start = 0;
+								this->depth_base = depth;
+								_is_last = true;
+								++first;
+
+								return StringView(vec.data(), count);
+							}
+						}
+						token_start = count;
+						break;
+					}
+
+					if (x == '\"') {
+						state = 1;
+					}
+					else if (x == '[' || x == '{') {
+						depth++; ++count_token;
+						is_in_array.push_back(x == '[');
+					}
+					else if (x == ']' || x == '}') {
+						if (depth <= 0) {
+							return StringView(); // error
+						}
+						depth--; ++count_token; is_in_array.pop_back();
+						if (depth == 0) {
+							log << info << "chk depth == 0\n";
+							for (uint64_t i = count; i < vec.size(); ++i) {
+								if (!is_white_space(vec[i])) {
+									_ends_with_remain = true;
+									break;
+								}
+							}
+							next_start = 0;
+							this->depth_base = depth;
+							_is_last = true;
+							++first;
+
+							return StringView(vec.data(), count);
+						}
+					}
+					else if (x == ',') {
+						before_last_comma = last_comma;
+						before_last_depth = last_depth;
+						last_comma = count - 1;
+						last_depth = depth;
+						++count_token;
+					}
+					else if (x == ':') {
+						//
+					}
+					else {
+						//
+					}
+				}
+				else if (state == 1) {
+					if (x == '\"') {
+						state = 0; ++count_token;
+					}
+					else if (x == '\\') {
+						state = 2;
+					}
+				}
+				else if (state == 2) {
+					state = 1;
+				}
+			}
+
+			log << info << "last comma is " << before_last_comma << "\n";
+
+			if (before_last_comma == -1 || before_last_comma == 0 || before_last_comma == last_comma) {
+				// todo!
+				//std::cout << "last_comma is -1\n";
+				log << info << "last_comma is -1\n";
+				next_start = 0;
+				return StringView();
+			}
+			else {
+				next_start = before_last_comma;
+			}
+			_return_ = true;
+			_offset = last_comma - before_last_comma;
+			//	std::cout << "before ... " <<  before_last_comma << " " << last_comma << "\n";
+			++first;
+			this->depth_base = before_last_depth;
+			return StringView(vec.data(), before_last_comma + 1); // remain exist
+		}
+	public:
+
+		int64_t offset() const noexcept {
+			if (_return()) {
+				return _offset;
+			}
+			return 0;
+		}
+
+		void pop() {
+			vec.erase(vec.begin(), vec.begin() + next_start);
+			next_start = 0;
+		}
+
+		void next() {
+			//first = std::max(first + 1, 100);
+		}
+
+		bool is_first() const noexcept {
+			return first == 1;
+		}
+
+		bool is_last() const noexcept {
+			return _is_last;
+		}
+
+		void clear() {
+			this->state = 0;
+			this->vec.clear();
+			this->depth_base = 0;
+			this->depth_max = 0;
+			this->next_state = 0;
+			this->first = 0;
+			this->is_array.clear();
+			this->next_start = 0;
+			this->_is_last = false;
+			this->pj.clear(true);
+			this->ptr = this->pj;
+			this->_ends_with_remain = false;
+			this->is_in_array.clear();
+			this->_return_ = false;
+			this->_offset = 0;
+		}
+
+		_Value release();
+	};
+
 	class parser {
 	private:
 		_simdjson::dom::parser_for_claujson test_;
@@ -690,7 +972,9 @@ namespace claujson {
 		std::pair<bool, uint64_t> parse_str(StringView str, Document& d, uint64_t thr_num);
 
 		std::pair<bool, uint64_t> parse_small(StringView str, Document& d);
-		std::pair<bool, uint64_t> parse_small2(StringView str, Document& d, uint64_t thr_num);
+		std::pair<bool, uint64_t> parse_small2(StringView str, Document& d, uint64_t thr_num); // rename!
+		
+		std::pair<bool, uint64_t> parse_str_streaming(StringView str, State& s, Document& d, uint64_t thr_num);
 
 #if __cpp_lib_char8_t
 		// C++20~
