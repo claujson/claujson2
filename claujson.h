@@ -77,6 +77,7 @@ namespace claujson {
 
 		friend class Object;
 		friend class Array;
+		friend class PartialJson;
 	private:
 
 		// do not change!
