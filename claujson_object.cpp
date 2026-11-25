@@ -330,13 +330,13 @@ namespace claujson {
 	}
 
 
-	void Object::MergeWith(Array* j, int start_offset) {
-		CLAUJSON_ERROR("Object::MergeWith Error");
-		return;
+	bool Object::MergeWith(Array* j, int start_offset) {
+		CLAUJSON_FAIL(false, "Object::MergeWith Error");
+		//return;
 	}
 
 
-	void Object::MergeWith(Object* j, int start_offset) {
+	bool Object::MergeWith(Object* j, int start_offset) {
 		auto* x = j;
 
 		uint64_t len = j->get_data_size();
@@ -358,13 +358,14 @@ namespace claujson {
 		else {
 			log << info << "test1";
 		}
+		return true;
 	}
-	void Object::MergeWith(PartialJson* j, int start_offset) {
+	bool Object::MergeWith(PartialJson* j, int start_offset) {
 
 		auto* x = j;
 
 		if (x->arr_vec.empty() == false) { // not object?
-			CLAUJSON_ERROR("partial json is not object");
+			CLAUJSON_FAIL(false, "partial json is not object");
 		}
 
 		uint64_t len = j->get_data_size();
@@ -390,6 +391,7 @@ namespace claujson {
 		else {
 			log << info << "test2";
 		}
+		return true;
 	}
 	/*
 	void Object::add_item_type(int64_t key_buf_idx, int64_t key_next_buf_idx, int64_t val_buf_idx, int64_t val_next_buf_idx,
@@ -404,15 +406,15 @@ namespace claujson {
 				claujson::Convert(pool, temp, key_buf_idx, key_next_buf_idx, true, buf, key_token_idx, e);
 
 				if (e) {
-					CLAUJSON_ERROR("Error in add_item_type");
+					CLAUJSON_FAIL(false, "Error in add_item_type");
 				}
 				claujson::Convert(pool, temp2, val_buf_idx, val_next_buf_idx, false, buf, val_token_idx, e);
 				if (e) {
-					CLAUJSON_ERROR("Error in add_item_type");
+					CLAUJSON_FAIL(false, "Error in add_item_type");
 				}
 
 				if (!temp.is_str()) {
-					CLAUJSON_ERROR("Error in add_item_type, key is not string");
+					CLAUJSON_FAIL(false, "Error in add_item_type, key is not string");
 				}
 
 				obj_data.push_back(std::move(temp), std::move(temp2));
@@ -424,7 +426,7 @@ namespace claujson {
 		// error
 
 		log << warn << "errr..";
-		CLAUJSON_ERROR("Error Object::add_item_type");
+		CLAUJSON_FAIL(false, "Error Object::add_item_type");
 	}
 
 	void Object::add_user_type(_ValueType type, Arena* pool
@@ -433,7 +435,7 @@ namespace claujson {
 		// error
 
 		log << warn << "errr..";
-		CLAUJSON_ERROR("Error Object::add_user_type");
+		CLAUJSON_FAIL(false, "Error Object::add_user_type");
 		return;
 	}
 
@@ -448,11 +450,11 @@ namespace claujson {
 
 			claujson::Convert(pool, temp, key_buf_idx, key_next_buf_idx, true, buf, key_token_idx, e);
 			if (e) {
-				CLAUJSON_ERROR("Error in add_user_type");
+				CLAUJSON_FAIL(false, "Error in add_user_type");
 			}
 
 			if (temp.is_str() == false) {
-				CLAUJSON_ERROR("Error in add_item_type, key is not string");
+				CLAUJSON_FAIL(false, "Error in add_item_type, key is not string");
 			}
 
 			if (type == _ValueType::OBJECT) {

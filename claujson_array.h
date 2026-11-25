@@ -100,9 +100,9 @@ namespace claujson {
 	private:
 		// here only used in parsing.
 
-		void MergeWith(Array* j, int start_offset);
-		void MergeWith(Object* j, int start_offset);
-		void MergeWith(PartialJson* j, int start_offset);
+		bool MergeWith(Array* j, int start_offset);
+		bool MergeWith(Object* j, int start_offset);
+		bool MergeWith(PartialJson* j, int start_offset);
 
 	};
 

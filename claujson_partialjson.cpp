@@ -199,22 +199,22 @@ namespace claujson {
 				claujson::Convert(pool, temp, key_buf_idx, key_next_buf_idx, true, buf, key_token_idx, e);
 
 				if (e) {
-					CLAUJSON_ERROR("Error in add_item_type");
+					CLAUJSON_FAIL(false, "Error in add_item_type");
 				}
 
 				claujson::Convert(pool, temp2, val_buf_idx, val_next_buf_idx, false, buf, val_token_idx, e);
 
 				if (e) {
-					CLAUJSON_ERROR("Error in add_item_type");
+					CLAUJSON_FAIL(false, "Error in add_item_type");
 				}
 
 				if (temp.is_str() == false) {
-					CLAUJSON_ERROR("Error in add_item_type, key is not string");
+					CLAUJSON_FAIL(false, "Error in add_item_type, key is not string");
 				}
 
 
 				if (!arr_vec.empty()) {
-					CLAUJSON_ERROR("partialJson is array or object.6");
+					CLAUJSON_FAIL("partialJson is array or object.6");
 				}
 
 				obj_data.emplace_back(std::move(temp), std::move(temp2));
@@ -232,11 +232,11 @@ namespace claujson {
 
 				if (e) {
 
-					CLAUJSON_ERROR("Error in add_item_type");
+					CLAUJSON_FAIL(false, "Error in add_item_type");
 				}
 
 				if (!obj_data.empty()) {
-					CLAUJSON_ERROR("partialJson is array or object.5");
+					CLAUJSON_FAIL("partialJson is array or object.5");
 				}
 
 				arr_vec.emplace_back(std::move(temp2));
@@ -249,7 +249,7 @@ namespace claujson {
 	) {
 		{
 			if (!arr_vec.empty()) {
-				CLAUJSON_ERROR("partialJson is array or object.4"); // chk?
+				CLAUJSON_FAIL("partialJson is array or object.4"); // chk?
 			}
 
 			_Value temp;
@@ -258,11 +258,11 @@ namespace claujson {
 			claujson::Convert(pool, temp, key_buf_idx, key_next_buf_idx, true, buf, key_token_idx, e);
 
 			if (e) {
-				CLAUJSON_ERROR("Error in add_user_type");
+				CLAUJSON_FAIL(false, "Error in add_user_type");
 			}
 
 			if (temp.is_str() == false) {
-				CLAUJSON_ERROR("Error in add_item_type, key is not string");
+				CLAUJSON_FAIL(false, "Error in add_item_type, key is not string");
 			}
 
 			if (type == _ValueType::OBJECT) {
@@ -296,7 +296,7 @@ namespace claujson {
 	) {
 		{
 			if (!obj_data.empty()) {
-				CLAUJSON_ERROR("PartialJson is array or object.3");
+				CLAUJSON_FAIL("PartialJson is array or object.3");
 			}
 
 			StructuredPtr json;
@@ -335,8 +335,8 @@ namespace claujson {
 			return false;
 		}
 		if (!arr_vec.empty()) {
-			CLAUJSON_ERROR("partialJson is array or object.2");
-			return false;
+			CLAUJSON_FAIL(false, "partialJson is array or object.2");
+			//return false;
 		}
 		
 		if (val.Get().is_array()) {
@@ -366,8 +366,8 @@ namespace claujson {
 		}
 		
 		if (!obj_data.empty()) {
-			CLAUJSON_ERROR("partialJson is array or object.1");
-			return false;
+			CLAUJSON_FAIL(false, "partialJson is array or object.1");
+			//return false;
 		}
 
 
@@ -382,7 +382,7 @@ namespace claujson {
 
 		return true;
 	}
-	void  PartialJson::MergeWith(Array* j, int start_offset) {
+	bool  PartialJson::MergeWith(Array* j, int start_offset) {
 		auto* x = j;
 
 		uint64_t len = j->get_data_size();
@@ -402,11 +402,13 @@ namespace claujson {
 
 			log << info << "test5";
 		}
+
+		return true;
 	}
-	void  PartialJson::MergeWith(Object* j, int start_offset) {
-		CLAUJSON_ERROR("PartialJson::MergeWith Error");
+	bool  PartialJson::MergeWith(Object* j, int start_offset) {
+		CLAUJSON_FAIL(false, "PartialJson::MergeWith Error");
 	}
-	void  PartialJson::MergeWith(PartialJson* j, int start_offset) {
+	bool  PartialJson::MergeWith(PartialJson* j, int start_offset) {
 		auto* x = dynamic_cast<PartialJson*>(j);
 
 		uint64_t len = j->get_data_size();
@@ -431,5 +433,7 @@ namespace claujson {
 
 			log << info << "test6";
 		}
+
+		return true;
 	}
 }

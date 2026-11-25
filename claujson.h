@@ -10,6 +10,23 @@
 //#include "_simdjson.h" // modified simdjson 
 
 namespace claujson {
+
+
+#define CLAUJSON_FAIL(error_no, msg) \
+	do { \
+		log << warn << error_no << " : " << msg << "\n"; \
+		return error_no; \
+		/* error.make(__LINE__, StringView(msg)); */ \
+	} while (false) 
+
+	enum class MergeStatus : int {
+		MERGE_ERROR = -2,
+		MERGE_RIGHT_DEEPER = -1,
+		MERGE_SAME = 0,
+		MERGE_LEFT_DEEPER = 1,
+	};
+
+
 	class _Value;
 	class Array;
 	class Object;
@@ -627,8 +644,8 @@ namespace claujson {
 
 		bool assign_value(uint64_t idx, Value val);
 
-
-		void MergeWith(StructuredPtr j, int start_offset);
+		[[nodiscard]]
+		bool MergeWith(StructuredPtr j, int start_offset);
 
 		void reserve_data_list(uint64_t sz);
 
@@ -705,7 +722,7 @@ namespace claujson {
 
 		bool _return() const noexcept { return _return_; }
 
-		int merge(StructuredPtr other, StructuredPtr* other_now);
+		MergeStatus merge(StructuredPtr other, StructuredPtr* other_now);
 
 		bool ends_with_remain() const noexcept {
 			return _ends_with_remain;
@@ -1021,12 +1038,6 @@ namespace claujson {
 	//bool is_valid_string_in_json(std::u8string_view x);
 #endif
 }
-
-#define CLAUJSON_ERROR(msg) \
-	do { \
-		throw msg; \
-		/* error.make(__LINE__, StringView(msg)); */ \
-	} while (false) 
 
 #define claujson_inline _simdjson_inline
 

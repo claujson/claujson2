@@ -24,6 +24,26 @@
 	namespace claujson {
 
 
+		struct CleanupGuard {
+			my_vector<StructuredPtr>& g;
+			StructuredPtr& global;
+			State* s;
+			std::vector<Arena*>& memory_pool;
+
+			~CleanupGuard() {
+				for (auto& x : g) if (x) { x.Delete(); }
+				if (!s && global) { global.Delete(); }
+				if (!s) {
+					for (uint64_t i = 0; i < memory_pool.size(); ++i) {
+						if (memory_pool[i]) {
+							delete memory_pool[i];
+						}
+					}
+				}
+			}
+		};
+
+
 		//int64_t Arena::counter = 0;
 
 		// todo? make Document class? like simdjson?
@@ -366,7 +386,7 @@
 		}
 
 
-		void StructuredPtr::MergeWith(StructuredPtr j, int start_offset) {
+		bool StructuredPtr::MergeWith(StructuredPtr j, int start_offset) {
 			if (type == 1) {
 				if (j.is_array()) {
 					return arr->MergeWith(j.arr, start_offset);
@@ -400,6 +420,7 @@
 					return pj->MergeWith(j.pj, start_offset);
 				}
 			}
+			return false;
 		}
 
 		void StructuredPtr::reserve_data_list(uint64_t sz) {
@@ -748,7 +769,7 @@ namespace claujson {
 		}
 		auto* x = _simdjson::parse_string((const uint8_t*)text + 1, string_buf, false);
 		if (x == nullptr) {
-			return false; // CLAUJSON_ERROR("Error in Convert for string");
+			return false; // CLAUJSON_FAIL(false, "Error in Convert for string");
 		}
 		else {
 			*x = '\0';
@@ -774,7 +795,7 @@ namespace claujson {
 				copy = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[len + _simdjson::_SIMDJSON_PADDING]);
 				copy_len = len;
 			}
-			if (copy.get() == nullptr) { return false; } // CLAUJSON_ERROR("Error in Convert for new"); } // cf) new Json?
+			if (copy.get() == nullptr) { return false; } // CLAUJSON_FAIL(false, "Error in Convert for new"); } // cf) new Json?
 			std::memcpy(copy.get(), text, len);
 			std::memset(copy.get() + len, ' ', _simdjson::_SIMDJSON_PADDING);
 			value = copy.get();
@@ -785,7 +806,7 @@ namespace claujson {
 		if (x != _simdjson::SUCCESS) {
 			log << warn << StringView((char*)value, 20) << "\n";
 			log << warn << "parse number error. " << x << "\n";
-			return false; //CLAUJSON_ERROR("parse number error. ");
+			return false; //CLAUJSON_FAIL("parse number error. ");
 			//throw "Error in Convert to parse number";
 		}
 
@@ -821,7 +842,6 @@ namespace claujson {
 		//data.clear(true);
 
 		int ch = buf[buf_idx];
-		//try {
 		
 		switch (ch) {
 		case '"':
@@ -845,7 +865,7 @@ namespace claujson {
 		case 't':
 		{
 			if (!_simdjson::is_valid_true_atom(reinterpret_cast<uint8_t*>(&buf[buf_idx]), next_buf_idx - buf_idx)) {
-				goto ERR; //CLAUJSON_ERROR("Error in Convert for true");
+				goto ERR; //CLAUJSON_FAIL(false, "Error in Convert for true");
 			}
 
 			data.set_bool(true);
@@ -853,14 +873,14 @@ namespace claujson {
 		break;
 		case 'f':
 			if (!_simdjson::is_valid_false_atom(reinterpret_cast<uint8_t*>(&buf[buf_idx]), next_buf_idx - buf_idx)) {
-				goto ERR; //CLAUJSON_ERROR("Error in Convert for false");
+				goto ERR; //CLAUJSON_FAIL(false, "Error in Convert for false");
 			}
 
 			data.set_bool(false);
 			break;
 		case 'n':
 			if (!_simdjson::is_valid_null_atom(reinterpret_cast<uint8_t*>(&buf[buf_idx]), next_buf_idx - buf_idx)) {
-				goto ERR; //CLAUJSON_ERROR("Error in Convert for null");
+				goto ERR; //CLAUJSON_FAIL(false, "Error in Convert for null");
 			}
 
 			data.set_null();
@@ -868,7 +888,7 @@ namespace claujson {
 
 		default:
 			log << warn << "convert error : " << (int)buf[buf_idx] << " " << buf[buf_idx] << "\n";
-			goto ERR; //CLAUJSON_ERROR("convert Error");
+			goto ERR; //CLAUJSON_FAIL("convert Error");
 			//throw "Error in Convert : not expected";
 		}
 
@@ -880,7 +900,7 @@ namespace claujson {
 		//catch (const char* str) {
 	ERR:
 		//log << warn << str << "\n";
-		//CLAUJSON_ERROR(str);
+		//CLAUJSON_FAIL(str);
 		err = true;
 		return data;
 	}
@@ -1616,9 +1636,8 @@ namespace claujson {
 			return pos;
 		}
 
-		static int Merge(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next)
+		static MergeStatus Merge(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next)
 		{
-
 			// check!!
 			while (ut.get_data_size() >= 1
 				&& ut.get_value_list(0).is_structured() && (ut.get_value_list(0).is_virtual()))
@@ -1639,10 +1658,12 @@ namespace claujson {
 				}
 
 				if (_next.is_array() && _ut.is_object()) {
-					CLAUJSON_ERROR("Error in Merge, next is array but child? is object");
+					log << warn << ("Error in Merge, next is array but child? is object");
+					return MergeStatus::MERGE_ERROR;
 				}
 				if (_next.is_object() && _ut.is_array()) {
-					CLAUJSON_ERROR("Error in Merge, next is object but child? is array");
+					log << warn << ("Error in Merge, next is object but child? is array");
+					return MergeStatus::MERGE_ERROR;
 				}
 
 				int start_offset = 0;
@@ -1650,7 +1671,10 @@ namespace claujson {
 					++start_offset;
 				}
 
-				_next.MergeWith(_ut, start_offset);
+				bool e = !_next.MergeWith(_ut, start_offset);
+				if (e) {
+					return MergeStatus::MERGE_ERROR;
+				}
 
 				if (_ut.get_data_size() > 0 && _ut.get_value_list(0).is_structured() && _ut.get_value_list(0).is_virtual()) {
 					//clean(_ut.get_value_list(0));
@@ -1668,23 +1692,23 @@ namespace claujson {
 				else {
 					// right_depth > left_depth
 					if (!next && ut) {
-						return -1;
+						return MergeStatus::MERGE_RIGHT_DEEPER;
 					}
 					else if (next && !ut) {
-						return 1;
+						return MergeStatus::MERGE_LEFT_DEEPER;
 					}
 
-					return 0;
+					return MergeStatus::MERGE_SAME;
 				}
 			}
 		}
 
-		 int Merge2(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next, int& op)
+		MergeStatus Merge2(StructuredPtr next, StructuredPtr ut, StructuredPtr* ut_next, int& op)
 		{
 
 			if (!ut) {
 				*ut_next = next;
-				return 0;
+				return MergeStatus::MERGE_SAME;
 			}
 
 			// check!!
@@ -1702,10 +1726,12 @@ namespace claujson {
 				class StructuredPtr _next = next;
 
 				if (_next.is_array() && _ut.is_object()) {
-					CLAUJSON_ERROR("Error in Merge, next is array but child? is object");
+					log << warn << ("Error in Merge2, next is array but child? is object");
+					return MergeStatus::MERGE_ERROR;
 				}
 				if (_next.is_object() && _ut.is_array()) {
-					CLAUJSON_ERROR("Error in Merge, next is object but child? is array");
+					log << warn << ("Error in Merge2, next is object but child? is array");
+					return MergeStatus::MERGE_ERROR;
 				}
 
 				if (ut_next && _ut == (*ut_next)) {
@@ -1718,8 +1744,10 @@ namespace claujson {
 					++start_offset;
 				}
 
-				_next.MergeWith(_ut, start_offset);
-
+				bool e = !_next.MergeWith(_ut, start_offset);
+				if (e) {
+					return MergeStatus::MERGE_ERROR;
+				}
 				if (_ut.get_data_size() > 0 && _ut.get_value_list(0).is_structured() && _ut.get_value_list(0).is_virtual()) {
 					//clean(_ut.get_value_list(0)); // chk?
 				}
@@ -1736,13 +1764,13 @@ namespace claujson {
 				else {
 					// right_depth > left_depth
 					if (!next && ut) {
-						return -1;
+						return MergeStatus::MERGE_RIGHT_DEEPER;
 					}
 					else if (next && !ut) {
-						return 1;
+						return MergeStatus::MERGE_LEFT_DEEPER;
 					}
 
-					return 0;
+					return MergeStatus::MERGE_SAME;
 				}
 			}
 		}
@@ -1766,133 +1794,60 @@ namespace claujson {
 
 			int* err, uint64_t no, Arena* pool)
 		{
-			try {
-				if (token_arr_len <= 0) {
-					return false;
-				}
+			if (token_arr_len <= 0) {
+				return false;
+			}
 
-				// token_arr_len >= 1
+			// token_arr_len >= 1
 
-				uint64_t left_no = token_arr_start;
+			uint64_t left_no = token_arr_start;
 
-				class StructuredPtr global = _global;
+			class StructuredPtr global = _global;
 
-				uint64_t braceNum = 0;
+			uint64_t braceNum = 0;
 
-				StructuredPtr nowUT = global; // use get_parent(), not my_vector<StructuredPtr>
+			StructuredPtr nowUT = global; // use get_parent(), not my_vector<StructuredPtr>
 
-				TokenTemp key;
+			TokenTemp key;
 
-				auto* p_0 = &imple->structural_indexes[0];
-				auto* p_start = &imple->structural_indexes[token_arr_start];
-				auto* p_end = &imple->structural_indexes[token_arr_start + token_arr_len];
-				auto* p = &imple->structural_indexes[token_arr_start];
+			auto* p_0 = &imple->structural_indexes[0];
+			auto* p_start = &imple->structural_indexes[token_arr_start];
+			auto* p_end = &imple->structural_indexes[token_arr_start + token_arr_len];
+			auto* p = &imple->structural_indexes[token_arr_start];
 
-			chunk_start:
+		chunk_start:
 
-			start:
+		start:
+			{
+				const char type = (buf[*p]);
+
+				switch (type) {
+				case ',':
 				{
-					const char type = (buf[*p]);
+					++p; // pass comma.
 
-					switch (type) {
-					case ',':
-					{
-						++p; // pass comma.
-
-						if (p >= p_end) {
-							goto chunk_end;
-						}
-
-						bool is_key = p + 1 < p_end && buf[*(p + 1)] == ':';
-						if (is_key) {
-							goto object_element;
-						}
-						else {
-							goto array_element;
-						}
+					if (p >= p_end) {
+						goto chunk_end;
 					}
-					case '[':
-						goto array_start;
-					case '{':
-						goto object_start;
-					case ']':
-						goto array_end;
-					case '}':
-						goto object_end;
 
-					default: // first chunk!, only one item.
-					{
-						TokenTemp data;
-
-						data.buf_idx = *p;
-						data.token_idx = token_arr_start + (p - p_start);
-						// p - p_0 <- idx
-						if ((p + 1 - p_0) < imple->n_structural_indexes) {
-							data.next_buf_idx = *(p + 1);
-						}
-						else {
-							data.next_buf_idx = buf_len;
-						}
-
-						bool e = false;
-						_Value _data;
-						Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
-						if (e) {
-							CLAUJSON_ERROR("not valid value");
-						}
-						nowUT.add_array_element(std::move(_data));
-
-						//nowUT.add_item_type(data.buf_idx, data.next_buf_idx, buf, data.token_idx, use_lex_string);
-
-						++p;
-					}
-					goto chunk_end;
-					}
-				}
-			array_start:
-				{
-					++p; // pass [
-					
-					if (key.is_key) {
-						_Value _key;
-						bool e = false;
-						Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
-						if (e) {
-							CLAUJSON_ERROR("not valid key");
-						}
-
-						_Value obj;
-						obj = Array::Make(pool);
-
-						nowUT.add_object_element(std::move(_key), std::move(obj));
-
-						key.is_key = false;
+					bool is_key = p + 1 < p_end && buf[*(p + 1)] == ':';
+					if (is_key) {
+						goto object_element;
 					}
 					else {
-						nowUT.add_array_element(Array::Make(pool));
+						goto array_element;
 					}
-
-					class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);
-
-					braceNum++;
-
-					/// initial new nestedUT.
-					nowUT = pTemp;
-					nowUT.reserve_data_list(count_vec[left_no++]);
 				}
-
-				if (buf[*p] == ']') {
-					goto array_end;
-				}
-
-			array_element:
-
-				switch (buf[*p]) {
-				case '{':
-					goto object_start;
 				case '[':
 					goto array_start;
-				default:
+				case '{':
+					goto object_start;
+				case ']':
+					goto array_end;
+				case '}':
+					goto object_end;
+
+				default: // first chunk!, only one item.
 				{
 					TokenTemp data;
 
@@ -1910,99 +1865,431 @@ namespace claujson {
 					_Value _data;
 					Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
 					if (e) {
-						CLAUJSON_ERROR("not valid value");
+						CLAUJSON_FAIL(false, "not valid value");
 					}
 					nowUT.add_array_element(std::move(_data));
 
-					++p; // pass value
+					//nowUT.add_item_type(data.buf_idx, data.next_buf_idx, buf, data.token_idx, use_lex_string);
 
-					// continue?
-					const char type = (buf[*p]);
-
-					switch (type) {
-					case ',':
-						++p; // pass comma 
-
-						if (p >= p_end) {
-							goto chunk_end;
-						}
-
-						goto array_element;
-					case ']': goto array_end;
-					default:
-						goto error;
-					}
+					++p;
 				}
+				goto chunk_end;
 				}
+			}
+		array_start:
+			{
+				++p; // pass [
 
-			array_end:
-				++p; // pass ]
-
-				{
-					if (braceNum == 0) {
-
-						_Value _ut; // is v_array or v_object.
-
-						_ut = Array::MakeVirtual(pool);
-
-						StructuredPtr ut = _ut;
-						uint64_t len = nowUT.get_data_size();
-						ut.reserve_data_list(len);
-
-						if (len > 0 && nowUT.get_value_list(0).is_virtual()) {
-							ut.add_array_element(std::move(nowUT.get_value_list(0)));
-							--len;
-						}
-
-						for (uint64_t i = 0; i < len; ++i) {
-							if (nowUT.get_value_list(i).is_structured()) {
-								ut.add_array_element(std::move(nowUT.get_value_list(i)));
-							}
-							else {
-								ut.add_array_element(std::move(nowUT.get_value_list(i)));
-							}
-						}
-
-						nowUT.clear();
-						nowUT.add_array_element(std::move(_ut)); // this nowUT is always PartialJson?
+				if (key.is_key) {
+					_Value _key;
+					bool e = false;
+					Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
+					if (e) {
+						CLAUJSON_FAIL(false, "not valid key");
 					}
-					else {
-						braceNum--;
 
-						nowUT = nowUT.get_parent();
-					}
-				}
+					_Value obj;
+					obj = Array::Make(pool);
 
-				if (p != p_end) {
-					goto start;
+					nowUT.add_object_element(std::move(_key), std::move(obj));
+
+					key.is_key = false;
 				}
 				else {
-					goto chunk_end;
+					nowUT.add_array_element(Array::Make(pool));
 				}
 
-			object_start:
+				class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);
+
+				braceNum++;
+
+				/// initial new nestedUT.
+				nowUT = pTemp;
+				nowUT.reserve_data_list(count_vec[left_no++]);
+			}
+
+			if (buf[*p] == ']') {
+				goto array_end;
+			}
+
+		array_element:
+
+			switch (buf[*p]) {
+			case '{':
+				goto object_start;
+			case '[':
+				goto array_start;
+			default:
+			{
+				TokenTemp data;
+
+				data.buf_idx = *p;
+				data.token_idx = token_arr_start + (p - p_start);
+				// p - p_0 <- idx
+				if ((p + 1 - p_0) < imple->n_structural_indexes) {
+					data.next_buf_idx = *(p + 1);
+				}
+				else {
+					data.next_buf_idx = buf_len;
+				}
+
+				bool e = false;
+				_Value _data;
+				Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
+				if (e) {
+					CLAUJSON_FAIL(false, "not valid value");
+				}
+				nowUT.add_array_element(std::move(_data));
+
+				++p; // pass value
+
+				// continue?
+				const char type = (buf[*p]);
+
+				switch (type) {
+				case ',':
+					++p; // pass comma 
+
+					if (p >= p_end) {
+						goto chunk_end;
+					}
+
+					goto array_element;
+				case ']': goto array_end;
+				default:
+					goto error;
+				}
+			}
+			}
+
+		array_end:
+			++p; // pass ]
+
+			{
+				if (braceNum == 0) {
+
+					_Value _ut; // is v_array or v_object.
+
+					_ut = Array::MakeVirtual(pool);
+
+					StructuredPtr ut = _ut;
+					uint64_t len = nowUT.get_data_size();
+					ut.reserve_data_list(len);
+
+					if (len > 0 && nowUT.get_value_list(0).is_virtual()) {
+						ut.add_array_element(std::move(nowUT.get_value_list(0)));
+						--len;
+					}
+
+					for (uint64_t i = 0; i < len; ++i) {
+						if (nowUT.get_value_list(i).is_structured()) {
+							ut.add_array_element(std::move(nowUT.get_value_list(i)));
+						}
+						else {
+							ut.add_array_element(std::move(nowUT.get_value_list(i)));
+						}
+					}
+
+					nowUT.clear();
+					nowUT.add_array_element(std::move(_ut)); // this nowUT is always PartialJson?
+				}
+				else {
+					braceNum--;
+
+					nowUT = nowUT.get_parent();
+				}
+			}
+
+			if (p != p_end) {
+				goto start;
+			}
+			else {
+				goto chunk_end;
+			}
+
+		object_start:
+			{
+				++p; // pass {
+				if (key.is_key) {
+					_Value _key;
+					bool e = false;
+					Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
+					if (e) {
+						CLAUJSON_FAIL(false, "not valid key");
+					}
+
+					_Value obj;
+					obj = Object::Make(pool);
+
+					nowUT.add_object_element(std::move(_key), std::move(obj));
+
+					key.is_key = false;
+				}
+				else {
+					nowUT.add_array_element(Object::Make(pool));
+				}
+
+
+
+				class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);
+
+				braceNum++;
+
+				/// initial new nestedUT.
+				nowUT = pTemp;
+				nowUT.reserve_data_list(count_vec[left_no++]);
+			}
+
+			if (buf[*p] == '}') {
+				goto object_end;
+			}
+
+		object_element:
+			// key
+			{
+				TokenTemp data;
+
+				data.buf_idx = *p;
+				data.token_idx = token_arr_start + (p - p_start);
+				// p - p_0 <- idx
+				if ((p + 1 - p_0) < imple->n_structural_indexes) {
+					data.next_buf_idx = *(p + 1);
+				}
+				else {
+					data.next_buf_idx = buf_len;
+				}
+
+				data.is_key = true;
+
+				key = std::move(data);
+
+				++p; // pass key
+				++p; // pass :
+			}
+			// value
+			switch (buf[*p]) {
+			case '{':
+				goto object_start;
+			case '[':
+				goto array_start;
+			default:
+			{
+				TokenTemp data;
+
+				data.buf_idx = *p;
+				data.token_idx = token_arr_start + (p - p_start);
+				// p - p_0 <- idx
+				if ((p + 1 - p_0) < imple->n_structural_indexes) {
+					data.next_buf_idx = *(p + 1);
+				}
+				else {
+					data.next_buf_idx = buf_len;
+				}
+
+				_Value _key;
 				{
-					++p; // pass {
+					bool e = false;
+					Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
+					if (e) {
+						CLAUJSON_FAIL(false, "not valid key");
+					}
+				}
+
+				key.is_key = false;
+
+				_Value _data;
+				{
+					bool e = false;
+					Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
+					if (e) {
+						CLAUJSON_FAIL(false, "not valid value");
+					}
+				}
+				nowUT.add_object_element(std::move(_key), std::move(_data));
+
+				//nowUT.add_item_type(key.buf_idx, key.next_buf_idx, data.buf_idx, data.next_buf_idx, buf, key.token_idx, data.token_idx, use_lex_string);
+				key.is_key = false;
+				++p; // pass value
+			}
+			}
+
+		object_continue:
+			// continue?
+			{
+				const char type = (buf[*p]);
+
+				switch (type) {
+				case ',':
+					++p; // pass comma
+
+					if (p >= p_end) {
+						goto chunk_end;
+					}
+					goto object_element;
+				case '}': goto object_end;
+				default:
+					goto error;
+				}
+			}
+
+		object_end:
+			++p;  // pass }
+
+			{
+				if (braceNum == 0) {
+
+					_Value _ut; // is v_array or v_object.
+
+					_ut = Object::MakeVirtual(pool);
+
+					StructuredPtr ut = _ut;
+					uint64_t len = nowUT.get_data_size();
+					ut.reserve_data_list(len);
+
+					if (len > 0 && nowUT.get_value_list(0).is_virtual()) {
+						ut.add_object_element(_Value(), std::move(nowUT.get_value_list(0)));
+						--len;
+					}
+
+					for (uint64_t i = 0; i < len; ++i) {
+						if (nowUT.get_value_list(i).is_structured()) {
+							if (nowUT.get_value_list(i).is_virtual()) {
+								ut.add_object_element(_Value(), std::move(nowUT.get_value_list(i)));
+							}
+							else {
+								ut.add_object_element(std::move(nowUT.get_key_list(i)), std::move(nowUT.get_value_list(i)));
+							}
+						}
+						else {
+							ut.add_object_element(std::move(nowUT.get_key_list(i)),
+								std::move(nowUT.get_value_list(i)));
+						}
+					}
+
+					nowUT.clear();
+					nowUT.add_array_element(std::move(_ut)); // this nowUT is always PartialJson?
+				}
+				else {
+					braceNum--;
+
+					nowUT = nowUT.get_parent();
+				}
+			}
+
+			if (p != p_end) {
+				goto start;
+			}
+			else {
+				goto chunk_end;
+			}
+
+		chunk_end:
+			if (next) {
+				*next = nowUT;
+			}
+			return true;
+
+		error:
+			*err = -100;
+
+			log << warn << "error in Parse1\n";
+
+			return false;
+			/*
+			for (auto* p = &imple->structural_indexes[token_arr_start]; p != p_end; ++p) {
+				const char type = (buf[*p]);
+
+				switch (type) {
+				case ',':
+					continue;
+				default:
+				{
+					bool is_key = p + 1 < p_end && buf[*(p + 1)] == ':';
+
+					{
+						TokenTemp data;
+
+						data.buf_idx = *p;
+						data.token_idx = token_arr_start + (p - p_start);
+
+						if ((p - p_0) + 1 < imple->n_structural_indexes) {
+							data.next_buf_idx = *(p + 1); // input : valid json ( size > 1 ) <- so, p + 1 is also valid.
+						}
+						else {
+							data.next_buf_idx = buf_len;
+						}
+
+						if (is_key) {
+							data.is_key = true;
+
+							key = std::move(data);
+
+							++p; // pass key
+						}
+						else {
+
+							if (key.is_key) {
+								_Value _key;
+								bool e = false;
+								Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
+								if (e) {
+									CLAUJSON_FAIL(false, "not valid key");
+								}
+								_Value _data;
+								Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
+								if (e) {
+									CLAUJSON_FAIL(false, "not valid value");
+								}
+								nowUT.add_object_element(std::move(_key), std::move(_data));
+								key.is_key = false;
+							}
+							else {
+								bool e = false;
+								_Value _data;
+								Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
+								if (e) {
+									CLAUJSON_FAIL(false, "not valid value");
+								}
+								nowUT.add_array_element(std::move(_data));
+							}
+						}
+					}
+				}
+				break;
+				case '{':
+				case '[':
+					// Left 1
+				{ // object start, array start
+
 					if (key.is_key) {
 						_Value _key;
 						bool e = false;
 						Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
 						if (e) {
-							CLAUJSON_ERROR("not valid key");
+							CLAUJSON_FAIL(false, "not valid key");
 						}
 
-						_Value obj;
-						obj = Object::Make(pool);
-
-						nowUT.add_object_element(std::move(_key), std::move(obj));
-
+						_Value arr_or_obj;
+						if (type == '{') {
+							arr_or_obj = Object::Make(pool);
+						}
+						else {
+							arr_or_obj = Array::Make(pool);
+						}
+						nowUT.add_object_element(std::move(_key), std::move(arr_or_obj));
 						key.is_key = false;
 					}
 					else {
-						nowUT.add_array_element(Object::Make(pool));
-					}
+						_Value arr_or_obj;
+						if (type == '{') {
+							arr_or_obj = Object::Make(pool);
+						}
+						else {
+							arr_or_obj = Array::Make(pool);
+						}
 
-					
+						nowUT.add_array_element(std::move(arr_or_obj)); // add_user_type(type == '{' ? _ValueType::OBJECT : _ValueType::ARRAY, pool);
+					}
 
 					class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);
 
@@ -2012,355 +2299,84 @@ namespace claujson {
 					nowUT = pTemp;
 					nowUT.reserve_data_list(count_vec[left_no++]);
 				}
-
-				if (buf[*p] == '}') {
-					goto object_end;
-				}
-
-			object_element:
-				// key
-				{
-					TokenTemp data;
-
-					data.buf_idx = *p;
-					data.token_idx = token_arr_start + (p - p_start);
-					// p - p_0 <- idx
-					if ((p + 1 - p_0) < imple->n_structural_indexes) {
-						data.next_buf_idx = *(p + 1);
-					}
-					else {
-						data.next_buf_idx = buf_len;
-					}
-
-					data.is_key = true;
-
-					key = std::move(data);
-
-					++p; // pass key
-					++p; // pass :
-				}
-				// value
-				switch (buf[*p]) {
-				case '{':
-					goto object_start;
-				case '[':
-					goto array_start;
-				default:
-				{
-					TokenTemp data;
-
-					data.buf_idx = *p;
-					data.token_idx = token_arr_start + (p - p_start);
-					// p - p_0 <- idx
-					if ((p + 1 - p_0) < imple->n_structural_indexes) {
-						data.next_buf_idx = *(p + 1);
-					}
-					else {
-						data.next_buf_idx = buf_len;
-					}
-
-					_Value _key;
-					{
-						bool e = false;
-						Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
-						if (e) {
-							CLAUJSON_ERROR("not valid key");
-						}
-					}
-
-					key.is_key = false;
-					
-					_Value _data;
-					{
-						bool e = false;
-						Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
-						if (e) {
-							CLAUJSON_ERROR("not valid value");
-						}
-					}
-					nowUT.add_object_element(std::move(_key), std::move(_data));
-
-					//nowUT.add_item_type(key.buf_idx, key.next_buf_idx, data.buf_idx, data.next_buf_idx, buf, key.token_idx, data.token_idx, use_lex_string);
-					key.is_key = false;
-					++p; // pass value
-				}
-				}
-
-			object_continue:
-				// continue?
-				{
-					const char type = (buf[*p]);
-
-					switch (type) {
-					case ',':
-						++p; // pass comma
-
-						if (p >= p_end) {
-							goto chunk_end;
-						}
-						goto object_element;
-					case '}': goto object_end;
-					default:
-						goto error;
-					}
-				}
-
-			object_end:
-				++p;  // pass }
-
+				break;
+				// Right 2
+				case '}':
+				case ']':
 				{
 					if (braceNum == 0) {
 
 						_Value _ut; // is v_array or v_object.
 
-						_ut = Object::MakeVirtual(pool);
-
+						if (type == '}') {
+							_ut = Object::MakeVirtual(pool);
+						}
+						else {
+							_ut = Array::MakeVirtual(pool);
+						}
 						StructuredPtr ut = _ut;
 						uint64_t len = nowUT.get_data_size();
 						ut.reserve_data_list(len);
 
 						if (len > 0 && nowUT.get_value_list(0).is_virtual()) {
-							ut.add_object_element(_Value(), std::move(nowUT.get_value_list(0)));
+							if (ut.is_array()) {
+								ut.add_array_element(std::move(nowUT.get_value_list(0)));
+							}
+							else { // ut->is_object()
+								ut.add_object_element(_Value(), std::move(nowUT.get_value_list(0)));
+							}
 							--len;
 						}
 
 						for (uint64_t i = 0; i < len; ++i) {
 							if (nowUT.get_value_list(i).is_structured()) {
-								if (nowUT.get_value_list(i).is_virtual()) {
-									ut.add_object_element(_Value(), std::move(nowUT.get_value_list(i)));
+								if (ut.is_array()) {
+									ut.add_array_element(std::move(nowUT.get_value_list(i)));
 								}
-								else {
-									ut.add_object_element(std::move(nowUT.get_key_list(i)), std::move(nowUT.get_value_list(i)));
+								else { // ut->is_object()
+									if (nowUT.get_value_list(i).is_virtual()) {
+										ut.add_object_element(_Value(), std::move(nowUT.get_value_list(i)));
+									}
+									else {
+										ut.add_object_element(std::move(nowUT.get_key_list(i)), std::move(nowUT.get_value_list(i)));
+									}
 								}
 							}
 							else {
-								ut.add_object_element(std::move(nowUT.get_key_list(i)),
-									std::move(nowUT.get_value_list(i)));
+								if (ut.is_object()) {
+									ut.add_object_element(std::move(nowUT.get_key_list(i)),
+										std::move(nowUT.get_value_list(i)));
+								}
+								else {
+									ut.add_array_element(std::move(nowUT.get_value_list(i)));
+								}
 							}
 						}
 
 						nowUT.clear();
-						nowUT.add_array_element(std::move(_ut)); // this nowUT is always PartialJson?
+						nowUT.add_array_element(std::move(_ut)); // this nowUT is always PartialJson.
 					}
 					else {
 						braceNum--;
 
 						nowUT = nowUT.get_parent();
-					}
-				}
-
-				if (p != p_end) {
-					goto start;
-				}
-				else {
-					goto chunk_end;
-				}
-
-			chunk_end:
-				if (next) {
-					*next = nowUT;
-				}
-				return true;
-
-			error:
-				*err = -100;
-
-				log << warn << "error in Parse1\n";
-
-				return false;
-				/*
-				for (auto* p = &imple->structural_indexes[token_arr_start]; p != p_end; ++p) {
-					const char type = (buf[*p]);
-
-					switch (type) {
-					case ',':
-						continue;
-					default:
-					{
-						bool is_key = p + 1 < p_end && buf[*(p + 1)] == ':';
-
-						{
-							TokenTemp data;
-
-							data.buf_idx = *p;
-							data.token_idx = token_arr_start + (p - p_start);
-							
-							if ((p - p_0) + 1 < imple->n_structural_indexes) {
-								data.next_buf_idx = *(p + 1); // input : valid json ( size > 1 ) <- so, p + 1 is also valid.
-							}
-							else {
-								data.next_buf_idx = buf_len;
-							}
-							
-							if (is_key) {
-								data.is_key = true;
-
-								key = std::move(data);
-
-								++p; // pass key
-							}
-							else {
-
-								if (key.is_key) {
-									_Value _key;
-									bool e = false;
-									Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
-									if (e) {
-										CLAUJSON_ERROR("not valid key");
-									}
-									_Value _data;
-									Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
-									if (e) {
-										CLAUJSON_ERROR("not valid value");
-									}
-									nowUT.add_object_element(std::move(_key), std::move(_data));
-									key.is_key = false;
-								}
-								else {
-									bool e = false;
-									_Value _data;
-									Convert(pool, _data, data.buf_idx, data.next_buf_idx, false, buf, data.token_idx, e);
-									if (e) {
-										CLAUJSON_ERROR("not valid value");
-									}
-									nowUT.add_array_element(std::move(_data));
-								}
-							}
-						}
-					}
-					break;
-					case '{':
-					case '[':
-						// Left 1
-					{ // object start, array start
-
-						if (key.is_key) {
-							_Value _key;
-							bool e = false;
-							Convert(pool, _key, key.buf_idx, key.next_buf_idx, true, buf, key.token_idx, e);
-							if (e) {
-								CLAUJSON_ERROR("not valid key");
-							}
-
-							_Value arr_or_obj;
-							if (type == '{') {
-								arr_or_obj = Object::Make(pool);
-							}
-							else {
-								arr_or_obj = Array::Make(pool);
-							}
-							nowUT.add_object_element(std::move(_key), std::move(arr_or_obj));
-							key.is_key = false;
-						}
-						else {
-							_Value arr_or_obj;
-							if (type == '{') {
-								arr_or_obj = Object::Make(pool);
-							}
-							else {
-								arr_or_obj = Array::Make(pool);
-							}
-
-							nowUT.add_array_element(std::move(arr_or_obj)); // add_user_type(type == '{' ? _ValueType::OBJECT : _ValueType::ARRAY, pool);
-						}
-
-						class StructuredPtr pTemp = nowUT.get_value_list(nowUT.get_data_size() - 1);
-
-						braceNum++;
-
-						/// initial new nestedUT.
-						nowUT = pTemp;
-						nowUT.reserve_data_list(count_vec[left_no++]);
-					}
-					break;
-					// Right 2
-					case '}':
-					case ']':
-					{
-						if (braceNum == 0) {
-
-							_Value _ut; // is v_array or v_object.
-
-							if (type == '}') {
-								_ut = Object::MakeVirtual(pool);
-							}
-							else {
-								_ut = Array::MakeVirtual(pool);
-							}
-							StructuredPtr ut = _ut;
-							uint64_t len = nowUT.get_data_size();
-							ut.reserve_data_list(len);
-
-							if (len > 0 && nowUT.get_value_list(0).is_virtual()) {
-								if (ut.is_array()) {
-									ut.add_array_element(std::move(nowUT.get_value_list(0)));
-								}
-								else { // ut->is_object()
-									ut.add_object_element(_Value(), std::move(nowUT.get_value_list(0)));
-								}
-								--len;
-							}
-
-							for (uint64_t i = 0; i < len; ++i) {
-								if (nowUT.get_value_list(i).is_structured()) {
-									if (ut.is_array()) {
-										ut.add_array_element(std::move(nowUT.get_value_list(i)));
-									}
-									else { // ut->is_object()
-										if (nowUT.get_value_list(i).is_virtual()) {
-											ut.add_object_element(_Value(), std::move(nowUT.get_value_list(i)));
-										}
-										else {
-											ut.add_object_element(std::move(nowUT.get_key_list(i)), std::move(nowUT.get_value_list(i)));
-										}
-									}
-								}
-								else {
-									if (ut.is_object()) {
-										ut.add_object_element(std::move(nowUT.get_key_list(i)),
-											std::move(nowUT.get_value_list(i)));
-									}
-									else {
-										ut.add_array_element(std::move(nowUT.get_value_list(i)));
-									}
-								}
-							}
-
-							nowUT.clear();
-							nowUT.add_array_element(std::move(_ut)); // this nowUT is always PartialJson.
-						}
-						else {
-							braceNum--;
-
-							nowUT = nowUT.get_parent();
-
-						}
-					}
-					break;
 
 					}
 				}
+				break;
 
-				if (next) {
-					*next = nowUT;
 				}
-
-				return true; */
-
 			}
-			catch (const char* _err) {
-				*err = -10;
 
-				log << warn << _err << "\n";
+			if (next) {
+				*next = nowUT;
+			}
 
-				return false;
-			}
-			catch (...) {
-				*err = -11;
-				log << warn << "unknown error....\n";
-				return false;
-			}
+			return true; */
+
 		}
+		
+		
 
 		 int64_t FindDivisionPlace(char* buf, _simdjson::internal::dom_parser_implementation* imple, int64_t start, int64_t last)
 		{
@@ -2385,6 +2401,10 @@ namespace claujson {
 
 			 uint64_t parse_num, State* s) // first, strVec.empty() must be true!!
 		{	
+
+			
+			 int error_no = 0;
+
 			 StructuredPtr _global;
 
 			 if (s) {
@@ -2399,9 +2419,11 @@ namespace claujson {
 
 			my_vector<StructuredPtr> __global;
 			std::vector<Arena*> memory_pool;
+ 
+			CleanupGuard guard{ __global, _global, s, memory_pool };
 
-			try {
-				 
+			 {
+
 				{
 					uint64_t pivot_num = parse_num;
 					
@@ -2469,10 +2491,15 @@ namespace claujson {
 								&err[i], i, memory_pool[i]);
 						}
 
+						bool error = false;
+
 						for (size_t i = 0; i < result.size(); ++i) {
-							result[i].get();
+							error |= !result[i].get();
 						}
-					
+						if (error) {
+							CLAUJSON_FAIL(false, "error in parse1");
+						}
+
 						auto b = std::chrono::steady_clock::now();
 						auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(b - a);
 						log << info << "parse1 " << dur.count() << "ms\n";
@@ -2483,27 +2510,7 @@ namespace claujson {
 							case 0:
 								break;
 							default:
-								throw err[i];
-								/*
-								case -10:
-								case -11:
-									return false;
-									break;
-								case -1:
-								case -4:
-									log << warn << "Syntax Error\n"; return false;
-									break;
-								case -2:
-									log << warn << "error final state is not last_state!\n"; return false;
-									break;
-								case -3:
-									log << warn << "error x > buffer + buffer_len:\n"; return false;
-									break;
-								default:
-									log << warn << "unknown parser error " << err[i] << "\n"; return false;
-									break;
-								}
-								*/
+								CLAUJSON_FAIL(false, "error in parse1");
 							}
 						}
 
@@ -2550,102 +2557,89 @@ namespace claujson {
 							if (is_first && __global[start].get_data_size() > 0 && __global[start].get_value_list(0).is_structured()
 								&& (__global[start].get_value_list(0).is_virtual())) {
 								log << warn << "not valid file1\n";
-								throw 1;
+								CLAUJSON_FAIL(false, "error in merge");
 							}
 							if (is_last && next[last] && !(next[last].get_parent() == nullptr)) {
 								log << warn << "not valid file2\n";
-								throw 2;
+								CLAUJSON_FAIL(false, "error in merge");
 							}
 
 							if (!s) {
-								int err = Merge(_global, __global[start], &next[start]);
+								MergeStatus err = Merge(_global, __global[start], &next[start]);
 
-								if ((-1 == err || (pivots.size() == 0 && 1 == err))) {
+								if (MergeStatus::MERGE_ERROR == err) {
+									CLAUJSON_FAIL(false, "error in merge");
+								}
+
+								if ((MergeStatus::MERGE_RIGHT_DEEPER == err || (pivots.size() == 0 && MergeStatus::MERGE_LEFT_DEEPER == err))) {
 									log << warn << "not valid file3\n";
-									throw 3;
+									CLAUJSON_FAIL(false, "error in merge");
 								}
 
 								for (uint64_t i = start + 1; i <= last; ++i) {
-
-									/*
-									if (chk[i]) {
-										continue;
-									}
-									*/
 									// linearly merge and error check...
 									uint64_t before = i - 1;
-									/*
-									for (uint64_t k = i; k > 0; --k) {
-										if (chk[k - 1] == 0) {
-											before = k - 1;
-											break;
-										}
+
+									MergeStatus err = Merge(next[before], __global[i], &next[i]);
+
+									if (MergeStatus::MERGE_ERROR == err) {
+										CLAUJSON_FAIL(false, "error in merge");
 									}
-									*/
 
-									int err = Merge(next[before], __global[i], &next[i]);
-
-									if (-1 == err) {
+									if (MergeStatus::MERGE_RIGHT_DEEPER == err) {
 										log << warn << "chk " << i << " " << __global.size() << "\n";
 										log << warn << "not valid file4\n";
-										throw 4;
+										CLAUJSON_FAIL(false, "error in merge");
 									}
-									else if (i == last && 1 == err) {
+									else if (i == last && MergeStatus::MERGE_LEFT_DEEPER == err) {
 										log << warn << "not valid file5\n";
-										throw 5;
+										CLAUJSON_FAIL(false, "error in merge");
 									}
 								}
 							}
 							else { // when s is not nullptr!
-								int err = s->merge(__global[start], &next[start]);
+								MergeStatus err = s->merge(__global[start], &next[start]);
 
-								if (is_first && (-1 == err || (pivots.size() == 0 && 1 == err))) {
+								if (MergeStatus::MERGE_ERROR == err) {
+									CLAUJSON_FAIL(false, "error in merge");
+								}
+
+								if (is_first && (MergeStatus::MERGE_RIGHT_DEEPER == err || (pivots.size() == 0 && MergeStatus::MERGE_LEFT_DEEPER == err))) {
 									log << warn << "not valid data1\n";
-									throw 3;
+									CLAUJSON_FAIL(false, "error in merge");
 								}
 
 								for (uint64_t i = start + 1; i <= last; ++i) {
-									/*
-									if (chk[i]) {
-										continue;
-									}
-									*/
 									// linearly merge and error check...
 									uint64_t before = i - 1;
-									/*
-									for (uint64_t k = i; k > 0; --k) {
-										if (chk[k - 1] == 0) {
-											before = k - 1;
-											break;
-										}
-									}
-									*/
-									int err = s->merge(__global[i], &next[i]);
 
-									if (-1 == err) {
+									MergeStatus err = s->merge(__global[i], &next[i]);
+
+									if (MergeStatus::MERGE_RIGHT_DEEPER == err) {
 										log << warn << "chk " << i << " " << __global.size() << "\n";
 										log << warn << "not valid data2\n";
-										throw 4;
+										CLAUJSON_FAIL(false, "error in merge");
 									}
-									else if (is_last && i == last && 1 == err) {
+									else if (is_last && i == last && MergeStatus::MERGE_LEFT_DEEPER == err) {
 										log << warn << "not valid data3\n";
-										throw 5;
+										CLAUJSON_FAIL(false, "error in merge");
 									}
 								}
 							}
 
 							if (!s && _global.get_data_size() > 1) { // bug fix..
 								log << warn << "not valid file6\n";
-								throw 6;
+								CLAUJSON_FAIL(false, "error in merge");
 							}
 
 							if (!s) {
 								_global_memory_pool->link_from(memory_pool[start]);
+								memory_pool[start] = nullptr;
 								//memory_pool[start] = nullptr;
 								for (uint64_t i = start + 1; i <= last; ++i) {
 									/* if (chk[i]) { delete memory_pool[i]; memory_pool[i] = nullptr; continue; } */
 									_global_memory_pool->link_from(memory_pool[i]);
-									//memory_pool[i] = nullptr;
+									memory_pool[i] = nullptr;
 								}
 							}
 							else {
@@ -2685,7 +2679,7 @@ namespace claujson {
 					//	log << warn  << std::chrono::steady_clock::now() - a__ << "ms\n";
 				}
 				//	log << warn  << std::chrono::steady_clock::now() - a__ << "ms\n";
-
+				/*
 				for (uint64_t i = 0; i < __global.size(); ++i) {
 					if (__global[i]) {
 						__global[i].Delete();
@@ -2694,13 +2688,13 @@ namespace claujson {
 				if (!s && _global) {
 					_global.Delete();
 				}
-
+				*/
 				return true;
 			}
-			catch (int err) {
-
+			
+			/*
 				log << warn << "merge error " << err << "\n";
-				//CLAUJSON_ERROR("Merge Error"sv);
+				//CLAUJSON_FAIL("Merge Error"sv);
 				for (uint64_t i = 0; i < __global.size(); ++i) {
 					if (__global[i]) {
 						__global[i].Delete();
@@ -2715,47 +2709,7 @@ namespace claujson {
 					}
 				}
 				return false;
-			}
-			catch (const char* err) {
-
-				log << warn << err << "\n";
-				//CLAUJSON_ERROR("Merge Error"sv);
-				for (uint64_t i = 0; i < __global.size(); ++i) {
-					if (__global[i]) {
-						__global[i].Delete();
-					}
-				}
-				if (!s && _global) {
-					_global.Delete();
-				}
-				for (uint64_t i = 0; i < memory_pool.size(); ++i) {
-					if (memory_pool[i]) {
-						delete memory_pool[i];
-					}
-				}
-				return false;
-			}
-			catch (...) {
-
-				log << warn  << "internal error or new error \n";
-				for (uint64_t i = 0; i < __global.size(); ++i) {
-					if (__global[i]) {
-						__global[i].Delete();
-					}
-				}
-				if (!s && _global) {
-					_global.Delete();
-				}
-				for (uint64_t i = 0; i < memory_pool.size(); ++i) {
-					if (memory_pool[i]) {
-						delete memory_pool[i];
-					}
-				}
-
-				//CLAUJSON_ERROR("Internal Error"sv);
-				return false;
-			}
-
+				*/
 		}
 		 bool parse(_Value& global, Arena* _global_memory_pool ,char* buf, uint64_t buf_len,
 
@@ -5958,10 +5912,10 @@ namespace claujson {
 			}
 
 			if (_next.is_array() && _ut.is_object()) {
-				CLAUJSON_ERROR("Error in Merge, next is array but child? is object");
+				CLAUJSON_FAIL(false, "Error in Merge, next is array but child? is object");
 			}
 			if (_next.is_object() && _ut.is_array()) {
-				CLAUJSON_ERROR("Error in Merge, next is object but child? is array");
+				CLAUJSON_FAIL(false, "Error in Merge, next is object but child? is array");
 			}
 
 			int start_offset = 0;
@@ -5999,6 +5953,7 @@ namespace claujson {
 	}
 
 	std::pair<bool, uint64_t> parser::parse_small2(StringView str, Document& d, uint64_t thr_num) {
+		uint64_t error_code = 0;
 
 		auto _ = std::chrono::steady_clock::now();
 
@@ -6113,11 +6068,12 @@ namespace claujson {
 			
 			ut = std::move(uts[0]); 
 			
-			try {
+			{
 				if (ut.is_structured() && ut.as_structured().get_data_size() > 0 && ut.as_structured().get_value_list(0).is_structured()
 					&& (ut.as_structured().get_value_list(0).is_virtual())) {
 					log << warn << "not valid json1\n";
-					throw 1;
+					error_code = 1;
+					goto error;
 				}
 
 				for (uint64_t i = 1; i < uts.size(); ++i) {
@@ -6126,17 +6082,20 @@ namespace claujson {
 					if (-1 == merge_result) {
 						log << warn << "chk " << i << "\n";
 						log << warn << "not valid json2\n";
-						throw 4;
+						error_code = 4;
+						goto error;
 					}
 					else if (i == uts.size() - 1 && 1 == merge_result) {
 						log << warn << "not valid json3\n";
-						throw 5;
+						error_code = 5;
+						goto error;
 					}
 				}
 
 				if (last_parent[uts.size() - 1] && !(last_parent[uts.size() - 1].get_parent() == nullptr)) {
 					log << warn << "not valid json4\n";
-					throw 2;
+					error_code = 2;
+					goto error;
 				}
 
 				/* 
@@ -6146,14 +6105,12 @@ namespace claujson {
 				}
 				*/
 			}
-			catch (int x) {
-				return { false, x };
-			}
-			catch (...) {
-				return { false, -2 };
-			}
 
 			d.Get() = std::move(ut);
+			return { true, 0 };
+
+		error:
+			return { false, error_code };
 		}
 
 		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -6189,7 +6146,7 @@ namespace claujson {
 				log << warn << "stage1 error : ";
 				log << warn << x.error() << "\n";
 
-				//CLAUJSON_ERROR(_simdjson::error_message(x.CLAUJSON_ERROR()));
+				//CLAUJSON_FAIL(_simdjson::error_message(x.CLAUJSON_FAIL()));
 
 				return { false, 0 };
 			}
@@ -6488,11 +6445,11 @@ namespace claujson {
 			log << info << "simdjson-stage1 start\n";
 			auto x = test_.load(fileName);
 
-			if (x.CLAUJSON_ERROR() != _simdjson::error_code::SUCCESS) {
+			if (x.CLAUJSON_FAIL() != _simdjson::error_code::SUCCESS) {
 				log << warn << "stage1 error : ";
-				log << warn << x.CLAUJSON_ERROR() << "\n";
+				log << warn << x.CLAUJSON_FAIL() << "\n";
 
-				//CLAUJSON_ERROR(_simdjson::error_message(x.CLAUJSON_ERROR()));
+				//CLAUJSON_FAIL(_simdjson::error_message(x.CLAUJSON_FAIL()));
 
 				return { false, 0 };
 			}
@@ -6541,9 +6498,9 @@ namespace claujson {
 		return (result);
 	}
 
-	int State::merge(StructuredPtr other, StructuredPtr* other_now) {
+	MergeStatus State::merge(StructuredPtr other, StructuredPtr* other_now) {
 		//
-		int ret = LoadData2::Merge(this->ptr, other, other_now);
+		MergeStatus ret = LoadData2::Merge(this->ptr, other, other_now);
 
 		this->ptr = *other_now;
 
